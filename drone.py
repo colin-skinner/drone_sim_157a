@@ -34,7 +34,8 @@ class Drone:
                      prop_height: float,
                      max_force: float, 
                      min_force: float,
-                     num: int = 4):
+                     num: int = 4,
+                     kd: float = 0.02):
         
         if arm_distance < 0:
             raise ValueError("Arm distance must be positive")
@@ -44,6 +45,7 @@ class Drone:
 
         self.force_bounds = [min_force * 9.81, max_force * 9.81]
         self.num_prop = num
+        self.kd = kd
 
         # Allocation Matrix
         # Reference: https://www.cantorsparadise.org/how-control-allocation-for-multirotor-systems-works-f87aff1794a2/
@@ -145,7 +147,7 @@ class Drone:
         # Minimum force from the propellers
         min_force = 4 * self.force_bounds[0]
 
-        thrusts = self.allocate_thrusts(F_g + F_extra - min_force, np.array([1,0,0])) + min_force/4
+        thrusts = self.allocate_thrusts(F_g + F_extra - min_force, np.array([0.000001,0,.00001])) + min_force/4
         
         
         return thrusts 

@@ -103,6 +103,11 @@ class Simulation:
         self.add_force_body(back_left_F, back_left_r)
         self.add_force_body(back_right_F, back_right_r)
 
+        # Z_axis torques
+        self.torques.append(np.array([0, 0, self.drone.kd * motor_forces[0]]))
+        self.torques.append(np.array([0, 0,-self.drone.kd * motor_forces[1]]))
+        self.torques.append(np.array([0, 0,-self.drone.kd * motor_forces[2]]))
+        self.torques.append(np.array([0, 0, self.drone.kd * motor_forces[3]]))
     def sim_drone_timestep(self):
 
         self.t = self.t + self.dt
