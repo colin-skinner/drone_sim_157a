@@ -1,8 +1,11 @@
-from simulation import Simulation
-from drone import Drone
-from logger import Logger
-from quaternion_helpers import quat_apply, quat_inv
+# from simulation import Simulation
+# from drone import Drone
+# from logger import Logger
+# from quaternion_helpers import quat_apply, quat_inv
+
+from dronesim import Simulation, Drone, Logger, quat_apply, quat_inv
 import numpy as np
+# import pandas as pd
 
 import matplotlib.pyplot as plt
 """
@@ -41,7 +44,7 @@ if __name__ == "__main__":
     v0 = [0,0,0]
     q0 = [1,0,0,0] # Identity quaternion
     w0 = [0,0,0]
-    state0 = p0 + v0 + q0 + w0
+    state0 = np.array(p0 + v0 + q0 + w0)
 
     mass = .5 # kg
     I = np.array([
@@ -53,6 +56,8 @@ if __name__ == "__main__":
 
     min_prop_force_kgf = 0.095
     max_prop_force_kgf = 0.46
+
+    # ADDD LOOKUP TABLE PROP
 
     t_max = 60
     dt = 0.01
@@ -67,7 +72,7 @@ if __name__ == "__main__":
 
 
     
-    drone.define_props(70/1000, 15/1000, max_prop_force_kgf, min_prop_force_kgf, 0)
+    drone.define_prop(70/1000, 15/1000, max_prop_force_kgf, min_prop_force_kgf, 0)
     drone.define_drone(mass, I, dimensions / 100)
 
 
@@ -116,10 +121,10 @@ if __name__ == "__main__":
     plt.legend(["X", "Y", "Z"])
 
     plt.figure()
-    axis = [quat_apply(q, [0,0,1]) for q in logger.actual_states[0:step, 6:10].tolist()]
+    axis = [quat_apply(q, [0,1,0]) for q in logger.actual_states[0:step, 6:10].tolist()]
+    plt.plot(logger.t[0:step], axis)
     plt.title("Axis")
     plt.legend(["X", "Y", "Z"])
-    plt.plot(logger.t[0:step], axis)
 
     plt.show()
     
