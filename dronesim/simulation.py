@@ -1,7 +1,7 @@
-from drone import Drone
+from .drone import Drone
 import numpy as np
-from quaternion_helpers import *
-from integrators import rk4_func, euler_func
+from .quaternion_helpers import *
+from .integrators import rk4_func, euler_func
 
 class Simulation:
     """Define environment and adds forces to a drone"""
@@ -43,8 +43,10 @@ class Simulation:
         if np.shape(r) != (3,):
             raise ValueError("r_body must be a 3x1 vector")
         
-        
+        # print(f"{r=} {force=}")
         torque = np.cross(r, force)
+
+        # print(f"{torque}")
 
         self.forces.append(force)
         self.torques.append(torque)
@@ -53,8 +55,14 @@ class Simulation:
         """Body version of adding a force"""
         q_B2L = self.actual_state[6:10]
 
+        # print(f"{q_B2L=}")
+
+        # print(f"{r_L=} {force_L=}")
         force = quat_apply(q_B2L, force_L)
         r = quat_apply(q_B2L, r_L)
+
+        # print(f"{r=} {force=}")
+        # print(r)
 
         self.add_force(force, r)
 
@@ -98,6 +106,9 @@ class Simulation:
         back_left_F = np.array([0, 0, motor_forces[2]])
         back_right_F = np.array([0, 0, motor_forces[3]])
 
+        # print(front_left_F, front_right_F, back_left_F, back_right_F)
+        # print(front_left_r, front_right_r, back_left_r, back_right_r)
+
         self.add_force_body(front_left_F, front_left_r)
         self.add_force_body(front_right_F, front_right_r)
         self.add_force_body(back_left_F, back_left_r)
@@ -108,7 +119,11 @@ class Simulation:
         self.torques.append(np.array([0, 0,-self.drone.kd * motor_forces[1]]))
         self.torques.append(np.array([0, 0,-self.drone.kd * motor_forces[2]]))
         self.torques.append(np.array([0, 0, self.drone.kd * motor_forces[3]]))
-    def sim_drone_timestep(self):
+        
+
+        # print()
+
+    def sim_drone_timestep(self, gravity_en = True):
 
         self.t = self.t + self.dt
         # print(f"Simulating t={self.t}s")
@@ -119,9 +134,11 @@ class Simulation:
         # print(f"Drone at {self.actual_state[0:3]}m")
         
         # Gravity is the only external force?
-        gravity = np.array([0, 0, -9.81]) * self.drone.mass
-        self.add_force(gravity, np.zeros(3))
+        if gravity_en:
+            gravity = np.array([0, 0, -9.81]) * self.drone.mass
+            self.add_force(gravity, np.zeros(3))
 
+        # print(self.drone.motor_forces)
         # Calculate how actuator inputs affect the forces/torques
         self.sim_props(self.drone.motor_forces) # Adds motor forces to array based on drone dimensions
 
@@ -129,8 +146,10 @@ class Simulation:
         # Sum forces
         self.calc_forces()
 
+        """TODO: Fix issue with simulating the motors generating torques"""
+
         # print(self.forces)
-        print(self.total_force)
+        # print(self.total_force)
         print(self.total_torque)
 
 

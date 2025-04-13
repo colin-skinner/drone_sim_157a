@@ -1,7 +1,7 @@
-from drone import Drone
-from simulation import Simulation
+from .drone import Drone
+from .simulation import Simulation
 import numpy as np
-from quaternion_helpers import *
+from .quaternion_helpers import *
 
 
 class Logger:

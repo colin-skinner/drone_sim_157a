@@ -1,7 +1,7 @@
 
 from __future__ import annotations  # For forward references in type hints (Python 3.7+)
 import numpy as np
-from quaternion_helpers import *
+from .quaternion_helpers import *
 from typing import Callable
 
 

@@ -144,4 +144,4 @@ def quat_apply(quat, vector):
         print(f"Quanternion is not normalized. Result vector of {rslt}") 
     
     # Discards 
-    return rslt[1:]
+    return rslt[1:4]

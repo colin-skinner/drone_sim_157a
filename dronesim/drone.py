@@ -1,35 +1,39 @@
 import numpy as np
-from quaternion_helpers import *
+from .quaternion_helpers import *
 from typing import Callable
 
 class Drone:
 
-    def __init__(self, dt: float, state0: np.ndarray):
+    def __init__(self, dt: float, state0: np.ndarray = None):
 
+        if dt <= 0:
+            raise ValueError("dt must be greater than 0")
+        
+        if state0 is not None and type(state0) is not np.ndarray:
+            raise ValueError("If state0 is input, must be an ndarray")
         # self.state = state0
         self.state = np.zeros(13) # p (3), v (3), q (4), w (3)
         self.dt = dt
         self.t = 0
 
-        # # Force and Torque array in global frame
-        # self.force_array: list[np.ndarray] = []
-        # self.torque_array: list[np.ndarray] = []
-
         # Must initialize everything with functions
         self.mass = None
         self.I_inv = None
         self.dimensions = None
+
+        # Erorrs
+        self.prev_angle_error = 0 # rad
         self.prev_error = 0
 
     def add_sim(self, sim_state_func: Callable[[], np.ndarray], sim_time_func: Callable[[], float]):
         self.get_sim_state = sim_state_func
         self.get_sim_time = sim_time_func
 
-    ########################################
-    #      Drone Initialization            #
-    ########################################
+    ############################################################################################################
+    #                                        Drone Initialization                                              #
+    ############################################################################################################
 
-    def define_props(self, 
+    def define_prop(self, 
                      arm_distance: float,
                      prop_height: float,
                      max_force: float, 
@@ -79,34 +83,81 @@ class Drone:
         self.dimensions = np.array(dimensions)
         self.I_inv = np.linalg.inv(I)
 
-    ########################################
-    #              Allocation              #
-    ########################################
+    ##########################################################################
+    #                               Navigation                               #
+    ##########################################################################
+    """
+        Obtaining current state.
+        
+        - Adds noise to state variable
+        - Runs Kalman filter
+    """
+    ##########################################################################
+    #                                Guidance                                #
+    ##########################################################################
+    """
+        Where the path planning happens.
 
-    def allocate_thrusts(self, thrust_z: float, torques: np.ndarray) -> np.ndarray:
-        # Reference:
-        # https://www.cantorsparadise.org/how-control-allocation-for-multirotor-systems-works-f87aff1794a2/
+        - Generate errors based on flight path
 
-        outputs = np.concat(([thrust_z], torques))
-        inputs = np.matmul(self.A_inv, outputs)
+    """
 
-        return inputs
+    def get_desired_torque(self, q_B2L: np.ndarray, q_des_L: np.ndarray, gains: list):
+        """
+        TODO: FINISH THIS IT MAY SUCK
+
+        Frames:
+        - L = Launch
+        - B = Body
+        - D = Desired
+        """
+
+        q_B2D = quat_mult( quat_inv(q_des_L), q_B2L)
+
+        angle, axis = axis_rot_from_quat(q_B2D)
+
+        self.prev_angle_error = angle
+
+        factor = gains[0] * angle + gains[1] * (angle - self.prev_angle_error)
+
+        return factor * unit(axis) # Axis might already be normalized
     
-    # def actual_thrust_torques(self):
-    #     """ MIGHT NOT NEED THIS"""
-    #     actual_output_forces = self.motor_forces
+    def constant_v_guidance(self, v_des_L: np.ndarray):
+        """
 
-    #     actual_forces: np.ndarray = np.matmul(self.A, actual_output_forces)
+        Contains gains for angle correction
+        Pseudocode:
+        - Config
+            - Determine dV, norms of both velocities, and "midpoint" velocity vector/norm
+        - Running
+            - If speed increasing and less than speed of midpoint norm
+                - Increase travel angle
+            - If speed 
+        - While velocity in direction is before (V_0 + dV) - (if )
+        
+        Increases travel angle (facing forward)
+        """
+        q_B2L = self.q
 
-    #     T_actual = float(actual_forces[0])
-    #     self.torque_actual = float(actual_forces[1:4])
+        # Torque correction gains
+        kp_t = 0.01 # Nm/rad
+        kd_t = 0.001 # Nm•s/rad
 
+        gains = [kp_t, kd_t, 0]
 
+        torque = self.get_desired_torque(q_B2L, )
 
+    ##########################################################################
+    #                                Controls                                #
+    ##########################################################################   
+    """
+        
+    
+        - Create desired force/torque with controllers
+        - Allocates desired force/torque to propellers
+    """ 
 
-    ########################################
-    #               Controls               #
-    ########################################    
+    
 
     def vertical_sample_controller(self):
         """Returns actuator inputs in a 4-element np.ndarray"""
@@ -147,52 +198,49 @@ class Drone:
         # Minimum force from the propellers
         min_force = 4 * self.force_bounds[0]
 
-        thrusts = self.allocate_thrusts(F_g + F_extra - min_force, np.array([0.000001,0,.00001])) + min_force/4
+        thrusts = self.allocate_thrusts(F_g + F_extra - min_force, np.array([0.00001,0,.00001])) + min_force/4
         
         
         return thrusts 
-        # return self.apply_motor_bounds(thrusts)
 
-        
+    def allocate_thrusts(self, thrust_z: float, torques: np.ndarray) -> np.ndarray:
+        # Reference:
+        # https://www.cantorsparadise.org/how-control-allocation-for-multirotor-systems-works-f87aff1794a2/
 
-    
+        outputs = np.concat(([thrust_z], torques))
+        inputs = np.matmul(self.A_inv, outputs)
 
-    ########################################
-    #             Add Forces               #
-    ########################################  
+        return inputs      
 
     def apply_motor_bounds(self, commands: np.ndarray):
-
-        # assert len(commands) == self.num_prop
-
-        # print(commands, end="\t")
 
         result = np.clip(commands, a_min=self.force_bounds[0], a_max=self.force_bounds[1])
         # print(result)
         return result
+    
+    # def thrust_to_speed_command(self)
 
-    ########################################
-    #               Propogation            #
-    ########################################
+    ##########################################################################
+    #                                 Loop                                   #
+    ##########################################################################
+    """
+        - Runs all GNC algorithms
+    """ 
 
     def timestep(self):
 
         ######### Navigation #########
 
-        # Obtain state information. In actual flight or better sims, replaced by sensor readings and filtering
-        """
-        - Get sensor readings
-        - Run EKF to get better p, v, q, w
-        """
         prev_state = self.state
-        
-        self.state = self.get_sim_state() # Add some noise maybe
+        self.state = self.get_sim_state()
         self.t += self.dt
 
-        ######### Guidance #########
+        self.p = self.state[0:3]
+        self.v = self.state[3:6]
+        self.q = self.state[6:10]
+        self.w = self.state[10:13]
 
-        # Consult flight path and generate errors
-        # errors = desired - actual
+        ######### Guidance #########
 
 
         ######### Control #########
@@ -224,39 +272,3 @@ class Drone:
         ######### Propogation? #########
         
         
-        # self.simulated_torques = self.actual_torques()
-        
-    
-
-
-
-    # def allocate_thrusts(self, desired_force: np.ndarray, desired_torque: np.ndarray):
-    #     """Control alg that adds thrust to force and moment arrays.
-    #     - In the sim, it accounts for spin up and spin down time"""
-    #     # r_thruster = 0.84 # m
-
-    #     # Add to force and moment array (very simple in a sim)
-    #     self.force_array.append(desired_force)
-    #     self.torque_array.append(desired_torque)
-
-
-
-    # def calc_forces(self):
-    #     """Sums external forces and adds its own inputs"""
-    #     self.total_force = sum(self.forces) # I think this works
-
-    # def calc_torques(self):
-    #     self.total_torque = np.array(self.torques)
-
-    # def onboard_flight_deriv(self, state: np.ndarray):
-
-    #     v = state[3:6]
-    #     q_B2L = state[6:10]
-    #     w = state[10:13]
-
-    #     dpdt = v
-    #     dvdt = self.total_force / self.mass
-    #     dqdt = quat_mult(q_B2L, [0, *w])
-    #     dwdt = np.matmul(self.I_inv, self.torque)
-
-    #     return np.array([*dpdt, *dvdt, *dqdt, *dwdt])
