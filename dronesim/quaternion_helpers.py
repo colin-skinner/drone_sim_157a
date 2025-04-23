@@ -1,14 +1,49 @@
 import numpy as np
 from numpy.linalg import norm
 
+#----- ANGLE                        -----#
+
+
+def angle_between(v1: np.ndarray, v2: np.ndarray):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0, 0), (0, 1, 0))
+            1.5707963267948966
+            >>> angle_between((1, 0, 0), (1, 0, 0))
+            0.0
+            >>> angle_between((1, 0, 0), (-1, 0, 0))
+            3.141592653589793
+    """
+
+    v1 = np.array(v1)
+    v2 = np.array(v2)
+
+    if len(v1) == 3 and len(v2) == 3:
+
+        num = np.dot(v1, v2)
+        den = norm(v1) * norm(v2)
+
+        result = np.arccos(num/den)
+
+        return result
+    
+    elif len(v1) == 4 and len(v2) == 4:
+        q_e = quat_mult( quat_inv(v1), v2)
+        angle, _ = axis_rot_from_quat(q_e)
+        return angle
+    
+
+    raise RuntimeError(f"Check lengths of input vectors")
+
 
 #----- Quaternion and Axis rotation -----#
-def quat_from_axis_rot(angle, axis):
-    degrees = angle
+def quat_from_axis_rot(angle_deg, axis):
+    
+    angle_rad = angle_deg * np.pi/180.0
     axis_norm = axis / norm(axis)
 
-    w = np.cos(degrees/2)
-    x,y,z = [np.sin(degrees / 2)*i for i in axis_norm]
+    w = np.cos(angle_rad/2)
+    x,y,z = [np.sin(angle_rad / 2)*i for i in axis_norm]
 
     return np.array([w,x,y,z])
 
@@ -16,14 +51,14 @@ def axis_rot_from_quat(quat):
     w,x,y,z = quat
     
     angle = 2*np.arccos(w)
+    # print(f"{angle=}")
 
-    if angle == 0:
-        return np.zeros(4)
+    if abs(angle) < 0.00000001:
+        return 0, np.zeros(3)
     
     i = x/np.sin(angle/2)
     j = y/np.sin(angle/2)
     k = z/np.sin(angle/2)
-
 
     return angle, np.array([i, j, k])
 
@@ -94,26 +129,11 @@ def quat_from_R(R):
 
     return q
 
-
 #----- Quaternion math! -----#
 def quat_mult(q1, q2):
-
-    if len(q1) == 3:
-        quat1 = np.array([0, *q1])
-        # print("q1 is a vector")
-    else:
-        quat1 = q1
-
-    if len(q2) == 3:
-        quat2 = np.array([0, *q2])
-        # print("q2 is a vector")
-    else:
-        quat2 = q2
-    # print(quat1)
-    # print(quat2)
     
-    w1, x1, y1, z1 = quat1
-    w2, x2, y2, z2 = quat2
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
 
     return np.array([
         w1*w2 - x1*x2 - y1*y2 - z1*z2,
@@ -137,7 +157,7 @@ def unit(q):
 #----- Applies Quaternion to Vector -----#
 def quat_apply(quat, vector):
     quat = np.array(quat)
-    temp = quat_mult(quat, vector)
+    temp = quat_mult(quat, [0, *vector])
     rslt = quat_mult(temp, quat_inv(quat))
 
     if abs(rslt[0]) > 0.0001:
