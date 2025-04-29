@@ -1,7 +1,8 @@
-from .drone import Drone
+from .Drone import Drone
 import numpy as np
 from .quaternion_helpers import *
 from .integrators import rk4_func, euler_func
+
 
 class Simulation:
     """Define environment and adds forces to a drone"""
@@ -26,7 +27,7 @@ class Simulation:
 
     def get_state(self):
         return self.actual_state
-    
+
     def get_time(self):
         return self.t
 
@@ -37,19 +38,17 @@ class Simulation:
     def add_force(self, force: np.ndarray, r: np.ndarray):
         """Adds force in the global frame of the drone"""
 
-
-
         if np.shape(force) != (3,):
             raise ValueError("force must be a 3x1 vector")
-        
+
         if np.shape(r) != (3,):
             raise ValueError("r_body must be a 3x1 vector")
-        
+
         # print(f"{r=} {force=}")
         torque = np.cross(r, force)
 
         # print(f"{torque}")
-        
+
         self.forces.append(force)
         self.torques.append(torque)
 
@@ -76,14 +75,12 @@ class Simulation:
         torque = quat_apply(q_B2L, torque_B)
 
         self.add_torque(torque)
-    
+
     def calc_forces(self):
         """Sums external forces and adds its own inputs"""
-        self.total_force = sum(self.forces) # I think this works
+        self.total_force = sum(self.forces)  # I think this works
         self.total_torque = sum(self.torques)
 
-
-    
     ########################################
     #           Simulation                 #
     ########################################
@@ -109,7 +106,7 @@ class Simulation:
         return np.array([*dpdt, *dvdt, *dqdt, *dwdt])
 
     def sim_props(self, motor_forces: np.ndarray, offsets: np.ndarray = np.empty):
-
+        """TODO: add motor spinup/down delays"""
         arm_distance = self.drone.arm_distance
         prop_height = self.drone.prop_height
 
@@ -123,17 +120,10 @@ class Simulation:
         back_left_F = np.array([0, 0, motor_forces[2]])
         back_right_F = np.array([0, 0, motor_forces[3]])
 
-
-
-        # print(front_left_F, front_right_F, back_left_F, back_right_F)
-        # print(front_left_r, front_right_r, back_left_r, back_right_r)
-
         self.add_force_body(front_left_F, front_left_r)
         self.add_force_body(front_right_F, front_right_r)
         self.add_force_body(back_left_F, back_left_r)
         self.add_force_body(back_right_F, back_right_r)
-
-        
 
         # Z_axis torques TODO: figure out if this is right
         self.add_torque_body(np.array([0, 0, self.drone.kd * motor_forces[0]]))
@@ -141,20 +131,13 @@ class Simulation:
         self.add_torque_body(np.array([0, 0, -self.drone.kd * motor_forces[2]]))
         self.add_torque_body(np.array([0, 0, self.drone.kd * motor_forces[3]]))
 
-        # self.torques.append(np.array([0, 0, self.drone.kd * motor_forces[0]]))
-        # self.torques.append(np.array([0, 0,-self.drone.kd * motor_forces[1]]))
-        # self.torques.append(np.array([0, 0,-self.drone.kd * motor_forces[2]]))
-        # self.torques.append(np.array([0, 0, self.drone.kd * motor_forces[3]]))
-
-        # print(sum(self.forces)[0])
-        # print(sum(self.torques))
-        # breakpoint()
-        
-    def sim_drone_timestep(self, gravity_en = True):
+    def sim_drone_timestep(self, gravity_en=True):
 
         self.t = self.t + self.dt
-        print(f"\nSimulating t={self.t}s")
-        
+
+        if np.isclose(self.t % 10, 0, atol=0.01):
+            print(f"Simulating t={int(self.t)}s")
+
         # Calculates drone motor forces based off of its state
         self.drone.timestep()
         assert self.drone.t == self.t
@@ -164,24 +147,20 @@ class Simulation:
             gravity = np.array([0, 0, -9.81]) * self.drone.mass
             self.add_force(gravity, np.zeros(3))
 
-        # breakpoint()
         # Calculate how actuator inputs affect the forces/torques
-        self.sim_props(self.drone.motor_forces) # Adds motor forces to array based on drone dimensions
+        self.sim_props(
+            self.drone.motor_forces
+        )  # Adds motor forces to array based on drone dimensions
 
-        
         # Sum forces
         self.calc_forces()
 
-        # print(self.forces)
-        # print(self.total_force)
-        # print(self.total_torque)
+        new_state = euler_func(
+            self.t, self.dt, self.actual_state, self.drone_state_deriv
+        )
 
-
-        new_state = euler_func(self.t, self.dt, self.actual_state, self.drone_state_deriv)
-
-        # normalize quat 
+        # normalize quat
         new_state[6:10] = unit(new_state[6:10])
-
 
         # Resets variables before next iteration
         self.actual_state = new_state
