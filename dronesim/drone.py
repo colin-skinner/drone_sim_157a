@@ -1,7 +1,7 @@
 import numpy as np
 from .quaternion_helpers import *
 from typing import Callable
-
+from pprint import pprint
 
 class Drone:
 
@@ -26,7 +26,7 @@ class Drone:
 
         # Erorrs
         self.prev_angle_error = 0  # rad
-        self.prev_error = 0
+        self.prev_p_error = 0
 
     def add_sim_functions(
         self,
@@ -54,8 +54,8 @@ class Drone:
                 "Length of accelerometer standard deviation array must be 3"
             )
 
-        self.accel_bias = bias
-        self.accel_noise_std = noise_std
+        self.accel_bias = np.array(bias)
+        self.accel_noise_std = np.array(noise_std)
 
     def add_gyro_noise(
         self,
@@ -69,8 +69,8 @@ class Drone:
         if len(noise_std) != 3:
             raise ValueError("Length of gyroscope standard deviation array must be 3")
 
-        self.gyro_bias = bias
-        self.gyro_noise_std = noise_std
+        self.gyro_bias = np.array(bias)
+        self.gyro_noise_std = np.array(noise_std)
 
     def add_lidar_noise(
         self,
@@ -83,8 +83,12 @@ class Drone:
         if len(noise_std) != 3:
             raise ValueError("Length of lidar standard deviation array must be 3")
 
-        self.lidar_bias = bias
-        self.lidar_noise_std = noise_std
+        self.lidar_bias = np.array(bias)
+        self.lidar_noise_std = np.array(noise_std)
+
+    def add_imu_misalignment(self, m_prime_to_m: np.ndarray):
+        assert len(m_prime_to_m) == 4
+        m_prime_to_m = unit(m_prime_to_m)
 
     ############################################################################################################
     #                                        Drone Initialization                                              #
@@ -174,6 +178,13 @@ class Drone:
         self.attitude_controller_1_Kp = Kp
         self.attitude_controller_1_Kd = Kd
 
+    def set_position_controller_1(self, Kp: np.ndarray, Kd: np.ndarray):
+        assert np.shape(Kp) == (3, 3)
+        assert np.shape(Kd) == (3, 3)
+
+        self.position_controller_1_Kp = Kp
+        self.position_controller_1_Kd = Kd
+
     ############################################################################################################
     #                                                  Loop                                                    #
     ############################################################################################################
@@ -255,43 +266,102 @@ class Drone:
         - Allocates desired force/torque to propellers
     """
 
+    def position_controller_1(self, p_desired_L: np.ndarray, v_desired_L: np.ndarray, vertical_angle: float):
+        """Broken as hell"""
+        assert np.shape(p_desired_L) == (3,)
+        assert np.shape(v_desired_L) == (3,)
+
+
+        p = self.p_calc
+        v = self.v_calc
+        q = self.q_calc
+
+        kp = self.position_controller_1_Kp[0,0]
+        kd = self.position_controller_1_Kd[0,0]
+        # kd = 0
+
+
+        p_err = p_desired_L - p
+        v_err = v_desired_L - v
+
+        # if norm(p_err) < 2:
+        #     return np.array([1,0,0,0]), self.F_g
+
+        F_desired = kp * p_err - kd * v_err + np.array([0,0,self.F_g])
+        # n_hat = quat_apply(q, [0,0,1])
+        z_axis_hat = unit(F_desired)
+
+        heading = np.copy(p_err)
+        heading[2] = 0
+        if norm(heading) < 1e-3:
+            heading = np.array([1.0, 0.0, 0.0])  # fallback forward
+
+        # Construct orthogonal frame
+        x_axis_hat = unit(np.cross(unit(np.cross(z_axis_hat, heading)), z_axis_hat))
+        y_axis_hat = unit(np.cross(z_axis_hat, x_axis_hat))
+
+        # y_axis_hat = unit(np.cross(np.array([0,0,1]), p_err))
+        # x_axis_hat = unit(np.cross(y_axis_hat, z_axis_hat))
+
+        # print(np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat)))
+        R = np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat))
+        q_des = quat_from_R(R)
+        # print(quat_apply(q_des, [0,0,1]))
+        # print(quat_apply(q_des, [0,0,1]))
+
+        thrust = norm(F_desired)
+
+        # angle = kp * norm(p_err) - kd * norm(v_err)
+
+        # angle = np.clip(angle, a_min=0, a_max=np.pi/2)
+
+        # print(p_err)
+
+        # print(angle)
+        # angle = - np.matmul(
+        #     kp, p_err.transpose()
+        # ) - np.matmul(kd, v_err.transpose())
+
+        # q_rot = quat_from_axis_rot(angle, torque_hat)
+        # print(q_rot)
+
+        # thrust = self.F_g / np.cos(vertical_angle) * 1.2
+
+        # self.prev_p_error = p_err
+
+        # print(quat_apply(q_des, [0,0,1]))
+        # pprint(locals())
+        # breakpoint()
+
+        return q_des, thrust
+
+
+
     def attitude_controller_1(
         self, q_desired_L: np.ndarray, w_desired_L: np.ndarray
     ) -> np.ndarray:
         assert np.shape(q_desired_L) == (4,)
         assert np.shape(w_desired_L) == (3,)
 
-        # breakpoint()
-
-        q_error_L = quat_mult(quat_inv(q_desired_L), self.q_calc)
-
-        x = axis_rot_from_quat(q_error_L)
-        # print(x[0] * RAD2DEG, end="\t\t")
-        # print(x[1:3])
-        # print(quat_apply(q_error_L, [0,0,1]))
-        w_error_L = w_desired_L - self.w_calc
-        # w_error_L = self.w_calc - w_desired_L
-
         kp = self.attitude_controller_1_Kp
         kd = self.attitude_controller_1_Kd
 
-        # print(q_error_L[0] * np.matmul(kp, q_error_L[1:4].transpose()))
-        # print(w_desired_L)
-        # print(self.w_calc)
-        # print(np.matmul(kd, w_error_L.transpose()))
+        q_error_L = quat_mult(quat_inv(q_desired_L), self.q_calc)
+        w_error_L = w_desired_L - self.w_calc
+
+        torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4].transpose()) - np.matmul(kd, w_error_L.transpose())
+
+        # pprint(locals())
         # breakpoint()
-
-        torque_L = -q_error_L[0] * np.matmul(
-            kp, q_error_L[1:4].transpose()
-        ) - np.matmul(kd, w_error_L.transpose())
-
         return torque_L
+    
+
 
     def allocate_thrusts(self, thrust_z_B: float, torques_B: np.ndarray) -> np.ndarray:
         # Reference:
         # https://www.cantorsparadise.org/how-control-allocation-for-multirotor-systems-works-f87aff1794a2/
 
-        outputs = np.concat(([thrust_z_B], torques_B))
+        outputs = np.concatenate(([thrust_z_B], torques_B))
         inputs = np.matmul(self.A_inv, outputs)
 
         return inputs
@@ -344,30 +414,14 @@ class Drone:
 
         # Only after first timestep
         if self.t > self.dt:
-            additional += kd * (err - self.prev_error) / self.dt
+            additional += kd * (err - self.prev_p_error) / self.dt
 
         thrust = self.F_g / np.cos(vertical_angle) + additional
 
-        self.prev_error = err
+        self.prev_p_error = err
 
         return thrust  # N
 
-    def force_up_sample_controller(self):
-        """Returns actuator inputs in a 4-element np.ndarray"""
-
-        F_g = self.F_g
-
-        F_extra = 20  # N
-
-        # Minimum force from the propellers
-        min_force = 4 * self.force_bounds_N[0]
-
-        thrusts = (
-            self.allocate_thrusts(F_g + F_extra - min_force, np.array([0, 0, 0.00001]))
-            + min_force / 4
-        )
-
-        return thrusts
 
     ############################################################################################################
     #                                                Running                                                   #
@@ -438,17 +492,25 @@ class Drone:
 
         self.motor_forces = np.zeros(4)
 
-        q_d = np.array([1, 0, 0, 0])
+        q_d = np.array([0., 0., 0., 0.98901019])
         # q_d = quat_from_axis_rot(10, [0, 1, 0])
 
         w_d = np.zeros(3)
         # w_d = np.array([0, 0, 100]) * DEG2RAD
 
-        torques = self.attitude_controller_1(q_d, w_d)
+        p_d = np.array([10,10,150])
+        v_d = np.zeros(3)
 
         vertical_axis = quat_apply(self.q_calc, [0, 0, 1])
         vertical_angle = angle_between(vertical_axis, [0, 0, 1])
-        thrust = self.vertical_sample_controller(vertical_angle)
+
+        q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
+
+        # print(q_d)
+
+        torques = self.attitude_controller_1(q_d, w_d)
+
+        # thrust = self.vertical_sample_controller(vertical_angle)
 
         # stepping = False
         # if (abs(torques[2]) > 0.0000001
@@ -461,7 +523,10 @@ class Drone:
         # if vertical_angle * 180 / np.pi >= 89:
         #     self.dead = True
 
-        # print(thrust)
+        # print(torques)
+
+        # breakpoint()
+
 
         self.motor_forces += self.apply_motor_bounds(
             self.allocate_thrusts(thrust, torques)

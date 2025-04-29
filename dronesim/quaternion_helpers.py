@@ -105,9 +105,8 @@ def quat_from_R(R):
     if type(R) != np.ndarray:
         R = np.array(R)
 
-    # Insomniac games formula, but taking transpose
-    # because they use scaler last convection
-    row0, row1, row2 = R.T
+    # Insomniac games formula
+    row0, row1, row2 = R.T # Transpose because rows are columns in Insomniac convention
     m00, m01, m02 = row0
     m10, m11, m12 = row1
     m20, m21, m22 = row2
@@ -129,7 +128,7 @@ def quat_from_R(R):
 
     q *= 1 / 2 / np.sqrt(t)
 
-    return q
+    return np.array([q[3], q[0], q[1], q[2]])
 
 
 # ----- Quaternion math! -----#

@@ -1,5 +1,7 @@
 import numpy as np
 
+GRAVITY_M_S2 = 9.81
+
 # Angles
 
 DEG2RAD = np.pi / 180.0

@@ -57,9 +57,10 @@ if __name__ == "__main__":
     drone.define_drone(mass, I, dimensions / 100)
 
     # Simulation Properties
-    # drone.add_accel_noise()
-    # drone.add_gyro_noise()
-    # drone.add_lidar_noise()
+    drone.add_imu_misalignment(imu_misalignment)
+    drone.add_accel_noise(accel_bias, accel_std)
+    drone.add_gyro_noise(gyro_bias, gyro_std)
+    drone.add_lidar_noise(lidar_bias, lidar_std)
 
     sim.add_drone(drone)
     drone.add_sim_functions(sim.get_state, sim.get_time)
@@ -70,7 +71,12 @@ if __name__ == "__main__":
 
     drone.set_attitude_controller_1(
         np.diag(3 * [attitude_controller_1_kp]),
-        np.diag(3 * [-attitude_controller_1_kd]),
+        np.diag(3 * [attitude_controller_1_kd]),
+    )
+
+    drone.set_position_controller_1(
+        np.diag(position_controller_1_kp),
+        np.diag(position_controller_1_kd),
     )
 
     ########################################
@@ -109,25 +115,20 @@ if __name__ == "__main__":
     #             Analysis                 #
     ########################################
 
-    # plot_state_vector(logger)
+    plot_state_vector(logger)
 
-    # dir = [0, 1, 0]
-    dir = [0,0,1]
-    axis_vec = np.array([
-        quat_apply(q_B2L, dir) for q_B2L in logger.actual_states[:step, 6:10].tolist()
-    ])
     plot_drone_axis(logger, [0,0,1], "Drone Normal Vector")
     plot_drone_axis(logger, [0,1,0], "Drone Normal Vector")
 
-    # plot_1(logger.t[:step], logger.drone_commanded_thrust[:step], "Drone Commanded Thrust")
+    plot_1(logger.t[:step], logger.drone_commanded_thrust[:step], "Drone Commanded Thrust")
 
-    # plot_3(logger.t[:step], logger.drone_commanded_torques[:step,:], "Drone Commanded Torques")
+    plot_3(logger.t[:step], logger.drone_commanded_torques[:step,:], "Drone Commanded Torques")
 
-    # plot_1(logger.t[0:step], logger.drone_vertical_angle[:step], "Drone Vertical Angle")
+    plot_1(logger.t[0:step], logger.drone_vertical_angle[:step], "Drone Vertical Angle")
 
-    # plot_3(logger.t[0:step], logger.actual_forces[:step], "Drone Actual Forces")
+    plot_3(logger.t[0:step], logger.actual_forces[:step], "Drone Actual Forces")
 
-    # plot_3(logger.t[0:step], logger.actual_torques[:step,:], "Drone Actual Torques")
+    plot_3(logger.t[0:step], logger.actual_torques[:step,:], "Drone Actual Torques")
 
     # plt.figure()
     # plt.plot(logger.t[0:step], logger.actual_forces[0:step])
