@@ -36,6 +36,9 @@ class Drone:
         self.get_sim_state = sim_state_func
         self.get_sim_time = sim_time_func
 
+    def add_path(self, p_d_arr: dict[float, list[float]]):
+        self.p_d_arr = p_d_arr
+
     ############################################################################################################
     #                                       Sensor Initialization                                              #
     ############################################################################################################
@@ -276,9 +279,8 @@ class Drone:
         v = self.v_calc
         q = self.q_calc
 
-        kp = self.position_controller_1_Kp[0,0]
-        kd = self.position_controller_1_Kd[0,0]
-        # kd = 0
+        kp = self.position_controller_1_Kp
+        kd = self.position_controller_1_Kd
 
 
         p_err = p_desired_L - p
@@ -287,7 +289,8 @@ class Drone:
         # if norm(p_err) < 2:
         #     return np.array([1,0,0,0]), self.F_g
 
-        F_desired = kp * p_err - kd * v_err + np.array([0,0,self.F_g])
+        F_desired = np.matmul(kp,p_err.T) + np.matmul(kd,v_err.T) + np.array([0,0,self.F_g]).T
+        # breakpoint()
         # n_hat = quat_apply(q, [0,0,1])
         z_axis_hat = unit(F_desired)
 
@@ -311,31 +314,10 @@ class Drone:
 
         thrust = norm(F_desired)
 
-        # angle = kp * norm(p_err) - kd * norm(v_err)
-
-        # angle = np.clip(angle, a_min=0, a_max=np.pi/2)
-
-        # print(p_err)
-
-        # print(angle)
-        # angle = - np.matmul(
-        #     kp, p_err.transpose()
-        # ) - np.matmul(kd, v_err.transpose())
-
-        # q_rot = quat_from_axis_rot(angle, torque_hat)
-        # print(q_rot)
-
-        # thrust = self.F_g / np.cos(vertical_angle) * 1.2
-
-        # self.prev_p_error = p_err
-
-        # print(quat_apply(q_des, [0,0,1]))
-        # pprint(locals())
-        # breakpoint()
+        # print(R)
+        print(quat_apply(q_des, [0,0,1]))
 
         return q_des, thrust
-
-
 
     def attitude_controller_1(
         self, q_desired_L: np.ndarray, w_desired_L: np.ndarray
@@ -354,8 +336,6 @@ class Drone:
         # pprint(locals())
         # breakpoint()
         return torque_L
-    
-
 
     def allocate_thrusts(self, thrust_z_B: float, torques_B: np.ndarray) -> np.ndarray:
         # Reference:
@@ -453,6 +433,17 @@ class Drone:
             case _:
                 pass
 
+    def get_position_desired(self):
+
+        timestamps = self.p_d_arr.keys()
+
+        key = max(i for i in timestamps if i < self.t)
+
+        p_d = self.p_d_arr[key]
+
+        return np.array(p_d)
+
+
     def timestep(self):
 
         ####### State Machine ########
@@ -492,13 +483,17 @@ class Drone:
 
         self.motor_forces = np.zeros(4)
 
-        q_d = np.array([0., 0., 0., 0.98901019])
+        # q_d = np.array([0., 0., 0., 0.98901019])
         # q_d = quat_from_axis_rot(10, [0, 1, 0])
 
         w_d = np.zeros(3)
         # w_d = np.array([0, 0, 100]) * DEG2RAD
 
-        p_d = np.array([10,10,150])
+
+        
+        p_d = self.get_position_desired()
+
+
         v_d = np.zeros(3)
 
         vertical_axis = quat_apply(self.q_calc, [0, 0, 1])

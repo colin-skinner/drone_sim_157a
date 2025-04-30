@@ -6,7 +6,7 @@ from dronesim import quat_from_axis_rot, ThrustData
 #           Initial State              #
 ########################################
 
-p0_m = [0, 0, 200]
+p0_m = [0, 0, 2]
 v0_m = [0, 0, 0]
 q0 = [1, 0, 0, 0]  # Identity quaternion
 # q0 = quat_from_axis_rot(100, [1, 1, 0]).tolist()  # 20 deg angle in y
@@ -44,7 +44,7 @@ print(f"{max_prop_force_kgf=}")
 #             Simulation               #
 ########################################
 
-t_max = 100
+t_max = 20
 dt = 0.01
 
 imu_misalignment = [1,0,0,0]
@@ -59,14 +59,62 @@ lidar_bias = [0,0,0]
 lidar_std = [0,0,0]
 
 ########################################
+#               Path                   #
+########################################
+
+p_d_arr = { # testing Z
+    0: [0,0,3],
+    2: [0,0,4],
+    4: [0,0,5],
+    6: [0,0,4],
+    8: [0,0,3],
+}
+
+p_d_arr = { # testing X
+    0: [0,0,2],
+    2: [1,0,2],
+    4: [2,0,2],
+    6: [3,0,2],
+    8: [4,0,2],
+}
+
+
+# p_d_arr = { # testing X
+#     0: [0,0,2],
+#     2: [0,1,2],
+#     4: [0,2,2],
+#     6: [0,3,2],
+#     8: [0,4,2],
+# }
+
+# p_d_arr = { # weird one
+#     0: [0,0,2],
+#     2: [1,0,2],
+#     4: [1,0.1,2],
+#     # 6: [0,3,2],
+#     # 8: [0,4,2],
+# }
+
+########################################
 #         Controller Gains             #
 ########################################
 
-attitude_controller_1_kp = 0.03
+# attitude_controller_1_kp = 0.3 # GOOD
+# attitude_controller_1_kd = -0.004 # GOOD
+
+attitude_controller_1_kp = 0.3
 attitude_controller_1_kd = -0.004
+# attitude_controller_1_kd = -0.2 * np.sqrt(attitude_controller_1_kp)
 
-position_controller_1_kp = 3 * [0.1]
-position_controller_1_kd = 3 * [-0.6]
+# position_controller_1_kp = 3 * [0.1]
+# position_controller_1_kd = 3 * [-0.6]
 
-# position_controller_1_kp = [2.5, 2.5, 8.0]
-# position_controller_1_kd = [1.5, 1.5, 4.5]
+# a = 3
+# b = 0.4
+a = 10.5
+b = 5.5
+position_controller_1_kp = [10.5,a, 10.5] # good Z
+position_controller_1_kd = [5.5,b, 5.5] # good Z
+
+
+

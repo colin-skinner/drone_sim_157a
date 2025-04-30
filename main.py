@@ -66,6 +66,12 @@ if __name__ == "__main__":
     drone.add_sim_functions(sim.get_state, sim.get_time)
 
     ########################################
+    #                Path                  #
+    ########################################
+
+    drone.add_path(p_d_arr)
+
+    ########################################
     #               Gains                  #
     ########################################
 
@@ -118,7 +124,7 @@ if __name__ == "__main__":
     plot_state_vector(logger)
 
     plot_drone_axis(logger, [0,0,1], "Drone Normal Vector")
-    plot_drone_axis(logger, [0,1,0], "Drone Normal Vector")
+    plot_drone_axis(logger, [1,0,0], "Drone X Vector")
 
     plot_1(logger.t[:step], logger.drone_commanded_thrust[:step], "Drone Commanded Thrust")
 

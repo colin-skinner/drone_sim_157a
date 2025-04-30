@@ -55,7 +55,7 @@ def plot_drone_axis(logger: Logger, axis: list | np.ndarray, title=None):
     axis_vec = np.array([
         quat_apply(q_B2L, axis) for q_B2L in logger.actual_states[0:logger.step, 6:10].tolist()
     ])
-    plot_3(logger.t[0:logger.step], axis_vec, "Drone Z Axis")
+    plot_3(logger.t[0:logger.step], axis_vec, title)
 
 
 def plot_state_vector(
