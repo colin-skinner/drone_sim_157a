@@ -148,6 +148,7 @@ if __name__ == "__main__":
     # plt.legend()
     # plt.legend(["X", "Y", "Z"])
 
+    plot_3d(logger)
 
     plt.show()
 

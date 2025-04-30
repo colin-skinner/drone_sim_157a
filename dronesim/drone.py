@@ -518,6 +518,8 @@ class Drone:
         # if vertical_angle * 180 / np.pi >= 89:
         #     self.dead = True
 
+        thrust = thrust
+
         # print(torques)
 
         # breakpoint()

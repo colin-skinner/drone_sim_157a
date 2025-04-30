@@ -198,3 +198,56 @@ def plot_state_vector(
     figure.show()
 
 
+def plot_3d(logger: Logger, title = 'Trajectory', figsize = (20,10), time_unit = 'second', length_unit = 'meter'):
+
+
+    fig = plt.figure(figsize = figsize)
+
+    fig.suptitle(title, fontsize = 20)
+
+    max_step = logger.step
+
+    p = logger.actual_states[:max_step, 0:3]
+    v = logger.actual_states[:max_step, 3:6]
+    q = logger.actual_states[:max_step, 6:10]
+    w = logger.actual_states[:max_step, 10:13]
+
+    if length_unit in ["meter", "m"]:
+        x_arr = p
+        v = v
+    elif length_unit in ["centimeter", "cm"]:
+        x_arr = p * M2CM
+        v = v * M2CM
+    elif length_unit in ["foot", "ft"]:
+        x_arr = p * M2FT
+        v = v * M2FT
+    else:
+        print("Unrecognized length unit")
+        return
+    
+
+    x = x_arr[:, 0]
+    y = x_arr[:, 1]
+    z = x_arr[:, 2]
+
+
+
+    x = x_arr[:,0]
+    y = x_arr[:,1]
+    z = x_arr[:,2]
+    ax: Axes3D = fig.add_subplot(111, projection='3d')
+    # ax.set_aspect('equal', adjustable='box')
+    # ax.axis('square')
+
+    # ax.set_zlim(self.initial_altitude, max(x_arr[:,2]))
+
+    ax.set_xlim(-8,8)
+    ax.set_ylim(-8,8)
+    ax.set_zlim(0,5)
+
+    ax.plot(x[:max_step],y[:max_step],z[:max_step])
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+    fig.show()
