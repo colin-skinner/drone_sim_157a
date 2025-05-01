@@ -96,13 +96,6 @@ class Simulation:
         dqdt = 0.5 * quat_mult(q_B2L, [0, *w])
         dwdt = np.matmul(self.drone.I_inv, self.total_torque)
 
-        term = -np.cross(w.transpose(), np.matmul(self.drone.I, w)) + self.total_torque
-        # print(np.shape(term))
-        # dwdt = np.matmul(self.drone.I_inv, term.transpose())
-        # print(np.shape(dwdt))
-
-        # print(dwdt)
-
         return np.array([*dpdt, *dvdt, *dqdt, *dwdt])
 
     def sim_props(self, motor_forces: np.ndarray, offsets: np.ndarray = np.empty):
@@ -156,7 +149,7 @@ class Simulation:
         # Sum forces
         self.calc_forces()
 
-        new_state = euler_func(
+        new_state = rk4_func(
             self.t, self.dt, self.actual_state, self.drone_state_deriv
         )
 

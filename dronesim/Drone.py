@@ -14,6 +14,7 @@ class Drone:
             raise ValueError("If state0 is input, must be an ndarray")
         self.state = state0
         self.fsm_state = "idle"
+        self.full_navigation = False
         self.dt = dt
         self.t = 0
 
@@ -123,30 +124,13 @@ class Drone:
         # Reference: https://www.cantorsparadise.org/how-control-allocation-for-multirotor-systems-works-f87aff1794a2/
         r = arm_distance / np.sqrt(2)  # Distance from prop to central axis
 
-        # allocation_matrix = np.array([
-        #     [1, 1, 1, 1],
-        #     [-r, -r, r, r],
-        #     [-r, r, -r, r],
-        #     [kd, -kd, -kd, kd]
-        # ])
-
-        # allocation_matrix = np.array([
-        #     [1, 1, 1, 1],
-        #     [-r, r, -r, r],
-        #     [-r, -r, r, r],
-        #     [kd * r, -kd * r, -kd * r, kd * r]
-        # ])
-
         # SEEMED TO WORK FOR THE CONTROLLER
         allocation_matrix = np.array(
             [
                 [1, 1, 1, 1],
                 [r, -r, r, -r],
                 [-r, -r, r, r],
-                # [kd * r, -kd * r, -kd * r, kd * r]
-                # [r, -r, -r, r]
-                # [kd, -kd, -kd, kd]
-                [-kd * 2*r, kd * 2*r, kd * 2*r, -kd * 2*r],
+                [kd * r, -kd * r, -kd * r, kd * r],
             ]
         )
 
@@ -289,46 +273,44 @@ class Drone:
         v_err = v_desired_L - v
 
         # Force
-        F_desired = np.matmul(kp,p_err.T) + np.matmul(kd,v_err.T) + np.array([0,0,self.F_g]).T
-        dir_for_orientation = F_desired
+        self.F_desired = np.matmul(kp,p_err.T) + np.matmul(kd,v_err.T) + np.array([0,0,self.F_g]).T
+        dir_for_orientation = self.F_desired
 
-        if F_desired[2] < 0:
-            dir_for_orientation = -(self.F_g/F_desired[2]) * F_desired
+        # Clip to maximum force
+        if norm(self.F_desired) > self.max_thrust_N * 1.1:
+            self.F_desired = self.F_desired * abs(self.max_thrust_N / norm(self.F_desired))
+
+        # Vertical force fix
+        if self.F_desired[2] < 0: # TODO: make better condition for this
+        # if angle_between(self.F_desired, [0,0,1]) > max_angle:
+            # dir_for_orientation = -(self.F_g/self.F_desired[2]) * self.F_desired
+            # dir_for_orientation = np.copy(self.F_desired)
             dir_for_orientation[2] *= -1
-            F_desired[2] = (self.F_g - self.min_thrust_N) * ( np.arctan(F_desired[2] / 2) + np.pi/2 ) + self.min_thrust_N
-            # F_desired[2] = self.min_thrust_N
-            # breakpoint()
 
+            # Mapping to range of minimum thrusts (very proud of this)
+            self.F_desired[2] = (self.F_g - self.min_thrust_N) * ( np.arctan(self.F_desired[2] / 2) + np.pi/2 ) + self.min_thrust_N
+        # else:
+        #     self.F_desired[2] = (self.max_thrust_N - self.F_g) * ( np.arctan(self.F_desired[2] / 2) + np.pi/2 ) + self.F_g
 
-
-
-
-        # breakpoint()
-        # n_hat = quat_apply(q, [0,0,1])
+         # Construct orthogonal frame to find desired quaternion
         z_axis_hat = unit(dir_for_orientation)
+        x_axis_hat = unit(np.cross(z_axis_hat, np.cross(np.array([1,0,0]), z_axis_hat)) ) # assigns heading based off of desired velocity. TODO: maybe DONT DO THIS
 
-        
-        # heading = np.copy(p_err) # Automatically aligns with X axis if no heading , but some bullshit lowkey
-        # heading[2] = 0
-        # if norm(heading) < 1e-01:
-        #     heading = np.array([1.0, 0.0, 0.0])  
-        # x_axis_hat = unit(np.cross(unit(np.cross(z_axis_hat, heading)), z_axis_hat))
+        # x_axis_hat = unit(np.cross(z_axis_hat, np.cross(v_desired_L, z_axis_hat)) ) # assigns heading based off of desired velocity. TODO: maybe DONT DO THIS
 
-
-        x_axis_hat = unit(np.cross(z_axis_hat, np.cross(v_desired_L, z_axis_hat)) ) # assigns heading based off of desired velocity
-
-        # Construct orthogonal frame
+        # print(x_axis_hat)
         y_axis_hat = unit(np.cross(z_axis_hat, x_axis_hat))
 
-        # y_axis_hat = unit(np.cross(np.array([0,0,1]), p_err))
-        # x_axis_hat = unit(np.cross(y_axis_hat, z_axis_hat))
-
-        # print(np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat)))
         R = np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat))
-        q_des = quat_from_R(R)
+        q_des = unit(quat_from_R(R))
+        # q_des = quat_from_R(R)
+        # print(R)
         # print(quat_apply(q_des, [0,0,1]))
+        # print(norm())
+        # breakpoint()
 
-        thrust = norm(F_desired)
+
+        thrust = norm(self.F_desired)
 
         # print(R)
         # print(quat_apply(q_des, [0,0,1]))
@@ -349,8 +331,6 @@ class Drone:
 
         torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4].transpose()) - np.matmul(kd, w_error_L.transpose())
 
-        # pprint(locals())
-        # breakpoint()
         return torque_L
 
     def allocate_thrusts(self, thrust_z_B: float, torques_B: np.ndarray) -> np.ndarray:
@@ -470,30 +450,35 @@ class Drone:
         ######### Navigation #########
 
         prev_state = self.state
-        self.state = self.get_sim_state()
-        self.t += self.dt
 
-        # Actual state
-        self.p_true = self.state[0:3]
-        self.v_true = self.state[3:6]
-        self.q_true = self.state[6:10]
-        self.w_true = self.state[10:13]
+        if self.full_navigation:
+            pass
+        else:
 
-        # Simulated sensor Noise
-        self.a_true = (self.state[3:6] - prev_state[3:6]) / self.dt
+            
+            sim_state = self.get_sim_state() # OR Add option to feed sensor values instead
+            self.t += self.dt
 
-        self.a_noise = self.simulate_accel_noise(self.a_true)
-        self.w_noise = self.simulate_gyro_noise(self.w_true)
-        self.lidar_p_noise = self.simulate_lidar_noise(self.p_true)
+            # Calculated state is actual state
+            self.p_calc = sim_state[0:3]
+            self.v_calc = sim_state[3:6]
+            self.q_calc = sim_state[6:10]
+            self.w_calc = sim_state[10:13]
+
+            # breakpoint()
+
+        self.state = np.concat([self.p_calc, self.v_calc, self.q_calc, self.w_calc])
+
+        # # Simulated sensor Noise
+        # self.a_true = (self.state[3:6] - prev_state[3:6]) / self.dt
+
+        # self.a_noise = self.simulate_accel_noise(self.a_true)
+        # self.w_noise = self.simulate_gyro_noise(self.w_true)
+        # self.lidar_p_noise = self.simulate_lidar_noise(self.p_true)
 
         # FIltering
         # a,w -> p,v,q,w
 
-        # Calculated state
-        self.p_calc = self.p_true
-        self.v_calc = self.v_true
-        self.q_calc = self.q_true
-        self.w_calc = self.w_true
 
         ######### Guidance #########
 
@@ -507,9 +492,13 @@ class Drone:
         w_d = np.zeros(3)
         # w_d = np.array([0, 0, 100]) * DEG2RAD
 
-
+        
         
         p_d, v_d = self.get_position_desired()
+
+        
+            
+
 
         self.p_d_err = p_d - self.p_calc
 
@@ -520,6 +509,11 @@ class Drone:
         vertical_angle = angle_between(vertical_axis, [0, 0, 1])
 
         q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
+
+        # Angular velocity check
+        # if norm(self.w_calc) > 10:
+
+        #     q_d = np.array([1,0,0,0])
 
         # print(q_d)
         # q_d = np.array([1,0,0,0])
@@ -549,23 +543,13 @@ class Drone:
         self.motor_forces += self.apply_motor_bounds(
             self.allocate_thrusts(thrust, torques)
         )
+
+
         self.torques = torques
         self.thrust = thrust
         self.vertical_angle = vertical_angle
         self.q_d = q_d
-        # print(f"\t\t\t{self.motor_forces}\t\t{torques}")
 
-        # self.torques = np.zeros(3)
-        # self.thrust = 0
-
-        # self.torques = np.zeros(3)
-        # self.thrust = 0
-
-        # print(self.motor_forces, end="\t\t\t")
-        # print(sum(self.motor_forces), end="\t\t\t")
-        # print(self.state[10:13])
-
-        # Command motors based on lookup tables
 
         ######### Propogation? #########
 

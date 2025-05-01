@@ -33,6 +33,7 @@ class Logger:
         self.drone_commanded_thrust = np.zeros((steps, 1))
         self.drone_commanded_torques = np.zeros((steps, 3))
         self.drone_desired_quat = np.zeros((steps, 4))
+        self.drone_commanded_force = np.zeros((steps, 3))
 
         # Debug
         self.drone_p_d_error = np.zeros((steps, 3))
@@ -72,6 +73,7 @@ class Logger:
         self.drone_commanded_thrust[step] = self.drone.thrust
         self.drone_commanded_torques[step, :] = self.drone.torques
         self.drone_desired_quat[step, :] = self.drone.q_d
+        self.drone_commanded_force[step] = self.drone.F_desired
 
         # DEBUG
         self.drone_p_d_error[step, :] = self.drone.p_d_err
@@ -163,3 +165,22 @@ class Logger:
 
             # file.write("WOW")
             file.write(self.results.to_csv(index=False))
+
+    def save_kalman(self, filename: str = None):
+
+        if filename is None:
+            time = datetime.now()
+            filename = time.strftime("%Y_%m_%d-%H_%M_%S")
+
+        filename = f"{os.getcwd()}/results/{filename}_kalman.csv"
+
+        kalman_results = self.results[["Time (s)",
+                                       "ax_body (m/s2)", "ay_body (m/s2)", "az_body (m/s2)",
+                                       "wx_body (rad/s2)", "wy_body (rad/s2)", "wz_body (rad/s2)",
+                                       "x_actual (m)", "y_actual (m)", "z_actual (m)"
+                                       ]]
+
+        with open(filename, "w") as file:
+
+            # file.write("WOW")
+            file.write(kalman_results.to_csv(index=False))

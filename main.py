@@ -111,6 +111,11 @@ if __name__ == "__main__":
     # Set ending step
     logger.step = step
 
+    if filename not in ["", None]:
+        logger.save(filename)
+        logger.save_kalman(filename)
+
+
     ########################################
     #             Analysis                 #
     ########################################
@@ -135,6 +140,7 @@ if __name__ == "__main__":
 
 
     
+
     plot_3(logger.t[:step], [unit(quat_apply(q_d, [0,0,1])) for q_d in logger.drone_desired_quat[:step,:]], "q_des")
 
 
@@ -147,15 +153,12 @@ if __name__ == "__main__":
     if DEBUG:
 
         plt.show(block=False)
-
-        i = 1
-        while float(i) > 0:
-            i = debug_3d(logger, figsize=(10,10), speed=i) 
+        breakpoint()
+        debug_3d(logger, figsize=(10,10), start_time_s=debug_start_time, interval=speed_interval)
+        breakpoint()
     else: 
         plt.show()
 
-    if filename not in ["", None]:
-        logger.save(filename)
 
     # print(list(logger.actual_states[:5, 10:13]))
     # print()

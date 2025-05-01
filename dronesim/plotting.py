@@ -266,7 +266,11 @@ def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm
 #            3D with             #
 ########################################
 
-def debug_3d(logger: Logger, title = 'Trajectory Debug', figsize = (20,10), length_unit = 'm', speed = 1):
+def debug_3d(logger: Logger,
+             title = 'Trajectory Debug',
+             figsize = (20,10),
+             length_unit = 'm',
+             start_time_s = 0, interval = 1):
 
     max_step = logger.step
 
@@ -275,19 +279,10 @@ def debug_3d(logger: Logger, title = 'Trajectory Debug', figsize = (20,10), leng
     fig = plt.figure(figsize = figsize)
     fig.suptitle(title, fontsize = 20)
     ax: Axes3D = fig.add_subplot(111, projection='3d')
-
-
-    # print([min(logger.actual_states[:max_step, 0]), max(logger.actual_states[:max_step, 0])])
-    # print([min(logger.actual_states[:max_step, 1]), max(logger.actual_states[:max_step, 1])])
-    # print([min(logger.actual_states[:max_step, 2]), max(logger.actual_states[:max_step, 2])])
-    # breakpoint()
-    # ax.set_aspect('equal', adjustable='box')
-    # ax.axis('square')
     
 
-    interval = 2
-
-    for step in range(1,max_step, interval):
+    start_step = int(start_time_s / logger.sim.dt) + 1
+    for step in range(start_step,max_step, interval):
 
         p = logger.actual_states[:step, 0:3]
         curr_p = p[-1]
@@ -298,9 +293,12 @@ def debug_3d(logger: Logger, title = 'Trajectory Debug', figsize = (20,10), leng
         q_d = logger.drone_desired_quat[step]
         p_d_err = logger.drone_p_d_error[step]
 
+        thrust = logger.drone_commanded_force[step]
+
 
 
         plot_3d_helper(ax, logger, step, length_unit)
+        ax.text2D(0.05, 0.95, f"Thrust: {norm(thrust)}", transform=ax.transAxes)
 
         
         # Coordinate system
@@ -309,31 +307,32 @@ def debug_3d(logger: Logger, title = 'Trajectory Debug', figsize = (20,10), leng
         plot_vec_3d(ax, curr_p, curr_p + quat_apply(curr_q, [0,1,0]), 'green')
         plot_vec_3d(ax, curr_p, curr_p + quat_apply(curr_q, [0,0,1]), 'blue')
 
-        plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,1])), 'black')
+        plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0.5,0,0])), 'purple')
+        plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0.5,0])), 'orange')
+        plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,0.5])), 'black')
 
-        plot_vec_3d(ax, curr_p, curr_p + p_d_err, 'orange')
+        plot_vec_3d(ax, curr_p, curr_p + p_d_err, 'brown')
+        plot_vec_3d(ax, curr_p, curr_p + thrust, 'gray')
         # fig.show()
 
         ax.set_xlim(min(logger.actual_states[:max_step, 0] - 0.5), max(logger.actual_states[:max_step, 0]) + 0.5)
         ax.set_ylim(min(logger.actual_states[:max_step, 1] - 0.5), max(logger.actual_states[:max_step, 1]) + 0.5)
         ax.set_zlim(min(logger.actual_states[:max_step, 2] - 0.5), max(logger.actual_states[:max_step, 2]) + 0.5)
         ax.set_title(f"{title}: {logger.t[step]}s")
+
+        ax.legend(["Trajectory", "x_axis", "y_axis", "z_axis", "x_d", "y_d", "z_d", "p_err"])
         # ax.set_aspect('equal', adjustable='box')
         # ax.axis('square')
         plt.pause(logger.sim.dt)
 
         if step + interval + 1 > max_step:
-            return input("Press w to watch again:")
+            if input("Press w to watch again:") == "w":
+                debug_3d(logger, title, figsize, length_unit, start_time_s, interval)
+
 
         ax.cla()
 
         
-        
-        # plt.close(fig)
-
-        
-        
-    # pass
 
 
 

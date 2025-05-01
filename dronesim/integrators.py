@@ -4,10 +4,6 @@ from .quaternion_helpers import *
 from typing import Callable
 
 
-def unit(v: np.ndarray):
-    return v / np.linalg.norm(v)
-
-
 def newtons(f: function, f_dot: function, x: float):
     return x - f(x) / f_dot(x)
 
@@ -23,12 +19,6 @@ def euler_func(
 
     return x_n
 
-
-# def euler_expl(t: float, dt: float, x_prev: float, x_dot: float):
-#     """Euler's Method using an explicit value for the derivative"""
-#     x_n = dt * x_dot + x_prev
-
-#     return x_n
 
 
 def rk4_func(
@@ -55,20 +45,3 @@ def rk4_func_interp(
     x_n = x_prev + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
     return x_n
-
-
-# if __name__ == "__main__":
-#     a = np.array([
-#         [1, 0, 0],
-#         [1, 0, 0],
-#         [1, 0, 0]
-#     ])
-
-#     b = np.array([
-#         [5],
-#         [0],
-#         [1]
-#     ])
-
-#     c = np.eye(3)
-#     print(np.matmul(c,b))
