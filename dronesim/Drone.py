@@ -36,8 +36,8 @@ class Drone:
         self.get_sim_state = sim_state_func
         self.get_sim_time = sim_time_func
 
-    def add_path(self, p_d_arr: dict[float, list[float]]):
-        self.p_d_arr = p_d_arr
+    def add_path(self, path_arr: dict[float, list[float]]):
+        self.path_arr = path_arr
 
     ############################################################################################################
     #                                       Sensor Initialization                                              #
@@ -146,7 +146,7 @@ class Drone:
                 # [kd * r, -kd * r, -kd * r, kd * r]
                 # [r, -r, -r, r]
                 # [kd, -kd, -kd, kd]
-                [-kd, kd, kd, -kd],
+                [-kd * 2*r, kd * 2*r, kd * 2*r, -kd * 2*r],
             ]
         )
 
@@ -270,7 +270,7 @@ class Drone:
     """
 
     def position_controller_1(self, p_desired_L: np.ndarray, v_desired_L: np.ndarray, vertical_angle: float):
-        """Broken as hell"""
+        """Broken as kinda hell"""
         assert np.shape(p_desired_L) == (3,)
         assert np.shape(v_desired_L) == (3,)
 
@@ -294,13 +294,17 @@ class Drone:
         # n_hat = quat_apply(q, [0,0,1])
         z_axis_hat = unit(F_desired)
 
-        heading = np.copy(p_err)
-        heading[2] = 0
-        if norm(heading) < 1e-3:
-            heading = np.array([1.0, 0.0, 0.0])  # fallback forward
+        
+        # heading = np.copy(p_err) # Automatically aligns with X axis if no heading , but some bullshit lowkey
+        # heading[2] = 0
+        # if norm(heading) < 1e-01:
+        #     heading = np.array([1.0, 0.0, 0.0])  
+        # x_axis_hat = unit(np.cross(unit(np.cross(z_axis_hat, heading)), z_axis_hat))
+
+
+        x_axis_hat = unit(np.cross(z_axis_hat, np.cross(v_desired_L, z_axis_hat)) ) # assigns heading based off of desired velocity
 
         # Construct orthogonal frame
-        x_axis_hat = unit(np.cross(unit(np.cross(z_axis_hat, heading)), z_axis_hat))
         y_axis_hat = unit(np.cross(z_axis_hat, x_axis_hat))
 
         # y_axis_hat = unit(np.cross(np.array([0,0,1]), p_err))
@@ -310,12 +314,12 @@ class Drone:
         R = np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat))
         q_des = quat_from_R(R)
         # print(quat_apply(q_des, [0,0,1]))
-        # print(quat_apply(q_des, [0,0,1]))
+        print(quat_apply(q_des, [0,0,1]))
 
         thrust = norm(F_desired)
 
         # print(R)
-        print(quat_apply(q_des, [0,0,1]))
+        # print(quat_apply(q_des, [0,0,1]))
 
         return q_des, thrust
 
@@ -329,7 +333,7 @@ class Drone:
         kd = self.attitude_controller_1_Kd
 
         q_error_L = quat_mult(quat_inv(q_desired_L), self.q_calc)
-        w_error_L = w_desired_L - self.w_calc
+        w_error_L = self.w_calc - w_desired_L
 
         torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4].transpose()) - np.matmul(kd, w_error_L.transpose())
 
@@ -435,13 +439,15 @@ class Drone:
 
     def get_position_desired(self):
 
-        timestamps = self.p_d_arr.keys()
+        timestamps = self.path_arr.keys()
 
         key = max(i for i in timestamps if i < self.t)
 
-        p_d = self.p_d_arr[key]
+        row = self.path_arr[key]
+        p_d = row[0]
+        v_d = row[1]
 
-        return np.array(p_d)
+        return np.array(p_d), np.array(v_d)
 
 
     def timestep(self):
@@ -491,10 +497,12 @@ class Drone:
 
 
         
-        p_d = self.get_position_desired()
+        p_d, v_d = self.get_position_desired()
+
+        self.p_d_err = p_d - self.p_calc
 
 
-        v_d = np.zeros(3)
+        # v_d = np.zeros(3)
 
         vertical_axis = quat_apply(self.q_calc, [0, 0, 1])
         vertical_angle = angle_between(vertical_axis, [0, 0, 1])
@@ -502,10 +510,11 @@ class Drone:
         q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
 
         # print(q_d)
+        # q_d = np.array([1,0,0,0])
+        # thrust = self.vertical_sample_controller(vertical_angle)
 
         torques = self.attitude_controller_1(q_d, w_d)
 
-        # thrust = self.vertical_sample_controller(vertical_angle)
 
         # stepping = False
         # if (abs(torques[2]) > 0.0000001
@@ -531,6 +540,7 @@ class Drone:
         self.torques = torques
         self.thrust = thrust
         self.vertical_angle = vertical_angle
+        self.q_d = q_d
         # print(f"\t\t\t{self.motor_forces}\t\t{torques}")
 
         # self.torques = np.zeros(3)

@@ -132,7 +132,8 @@ class Simulation:
         self.add_torque_body(np.array([0, 0, self.drone.kd * motor_forces[3]]))
 
     def sim_drone_timestep(self, gravity_en=True):
-
+        """ Figure out order of when drone and sim have their state vectors bc now it is off by 1"""
+        # self.actual_state = self.next_state
         self.t = self.t + self.dt
 
         if np.isclose(self.t % 10, 0, atol=0.01):

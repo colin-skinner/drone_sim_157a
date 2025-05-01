@@ -1,24 +1,43 @@
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from mpl_toolkits.mplot3d.axes3d import Axes3D
+from time import time, sleep
 
 from .Logger import Logger
 from .constants import *
-from .quaternion_helpers import quat_apply
+from .quaternion_helpers import quat_apply, norm, unit
 
 # plt.style.use('dark_background')
 
+########################################
+#          Vector Helper               #
+########################################
 
+def plot_vec_3d(ax: Axes3D, p1: np.array, p2: np.array, color: str = None):
+    xs = [p1[0], p2[0]]
+    ys = [p1[1], p2[1]]
+    zs = [p1[2], p2[2]]
+
+    # print(f"{xs} {ys} {zs}")
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+
+    # Panel
+    if color is None:
+        ax.plot(xs, ys, zs)
+    else:
+        ax.plot(xs, ys, zs, color=color)
+
+########################################
+#           1, 2, 3 columns            #
+########################################
 
 def plot_3(t: np.ndarray, thing, title=None, factor = 1, fmt = ''):
     f = plt.figure()
     thing = np.array(thing)
-    # print(np.shape(t))
-    # print(np.shape(thing))
 
-    # print(t[-4:])
-    # print(thing[-4:])
-    # breakpoint()
     plt.plot(t, thing[:,0] * factor, fmt, label = "X")
     plt.plot(t, thing[:,1] * factor, fmt, label = "Y")
     plt.plot(t, thing[:,2] * factor, fmt, label = "Z")
@@ -49,7 +68,6 @@ def plot_1(t, thing, title=None, factor = 1):
     plt.grid(True)
     f.show()
 
-
 def plot_drone_axis(logger: Logger, axis: list | np.ndarray, title=None):
     
     axis_vec = np.array([
@@ -57,6 +75,9 @@ def plot_drone_axis(logger: Logger, axis: list | np.ndarray, title=None):
     ])
     plot_3(logger.t[0:logger.step], axis_vec, title)
 
+########################################
+#            State Vectors             #
+########################################
 
 def plot_state_vector(
     logger: Logger,
@@ -70,18 +91,6 @@ def plot_state_vector(
     max_step = logger.step
     t = logger.t[:max_step]
 
-
-    # if time_unit == "minute":
-    #     t = t * SEC2MIN
-    # elif time_unit == "hour":
-    #     t = t * SEC2HOUR
-    # elif time_unit == "day":
-    #     t = t * SEC2DAY
-    # elif time_unit in ["second", "s"]:
-    #     t = t
-    # else:
-    #     print("Unrecognized time unit")
-    #     return
 
     p = logger.actual_states[:max_step, 0:3]
     v = logger.actual_states[:max_step, 3:6]
@@ -100,8 +109,6 @@ def plot_state_vector(
     else:
         print("Unrecognized length unit")
         return
-
-
 
     x = x_arr[:, 0]
     y = x_arr[:, 1]
@@ -197,15 +204,23 @@ def plot_state_vector(
 
     figure.show()
 
+########################################
+#            3D             #
+########################################
 
-def plot_3d(logger: Logger, title = 'Trajectory', figsize = (20,10), time_unit = 'second', length_unit = 'meter'):
-
-
+def plot_3d(logger: Logger, max_step = None, title = 'Trajectory', figsize = (20,10), length_unit = 'm', show_fig = True):
+    
     fig = plt.figure(figsize = figsize)
-
     fig.suptitle(title, fontsize = 20)
+    ax: Axes3D = fig.add_subplot(111, projection='3d')
+    plot_3d_helper(ax, logger, max_step, length_unit)
+    fig.show()
 
-    max_step = logger.step
+
+def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm'):
+
+    if max_step is None:
+        max_step = logger.step
 
     p = logger.actual_states[:max_step, 0:3]
     v = logger.actual_states[:max_step, 3:6]
@@ -222,8 +237,7 @@ def plot_3d(logger: Logger, title = 'Trajectory', figsize = (20,10), time_unit =
         x_arr = p * M2FT
         v = v * M2FT
     else:
-        print("Unrecognized length unit")
-        return
+        raise RuntimeError("Unrecognized length unit")
     
 
     x = x_arr[:, 0]
@@ -235,19 +249,94 @@ def plot_3d(logger: Logger, title = 'Trajectory', figsize = (20,10), time_unit =
     x = x_arr[:,0]
     y = x_arr[:,1]
     z = x_arr[:,2]
-    ax: Axes3D = fig.add_subplot(111, projection='3d')
-    # ax.set_aspect('equal', adjustable='box')
-    # ax.axis('square')
+    
 
-    # ax.set_zlim(self.initial_altitude, max(x_arr[:,2]))
-
-    ax.set_xlim(-8,8)
-    ax.set_ylim(-8,8)
-    ax.set_zlim(0,5)
+    # ax.set_xlim(-8,8)
+    # ax.set_ylim(-8,8)
+    # ax.set_zlim(0,5)
 
     ax.plot(x[:max_step],y[:max_step],z[:max_step])
     
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
-    fig.show()
+
+
+########################################
+#            3D with             #
+########################################
+
+def debug_3d(logger: Logger, title = 'Trajectory Debug', figsize = (20,10), length_unit = 'm', speed = 1):
+
+    max_step = logger.step
+
+    plt.ion()
+
+    fig = plt.figure(figsize = figsize)
+    fig.suptitle(title, fontsize = 20)
+    ax: Axes3D = fig.add_subplot(111, projection='3d')
+
+
+    # print([min(logger.actual_states[:max_step, 0]), max(logger.actual_states[:max_step, 0])])
+    # print([min(logger.actual_states[:max_step, 1]), max(logger.actual_states[:max_step, 1])])
+    # print([min(logger.actual_states[:max_step, 2]), max(logger.actual_states[:max_step, 2])])
+    # breakpoint()
+    # ax.set_aspect('equal', adjustable='box')
+    # ax.axis('square')
+    
+
+    interval = 2
+
+    for step in range(1,max_step, interval):
+
+        p = logger.actual_states[:step, 0:3]
+        curr_p = p[-1]
+        q = logger.actual_states[:step, 6:10]
+        curr_q = q[-1]
+
+        torque = logger.actual_torques[step]
+        q_d = logger.drone_desired_quat[step]
+        p_d_err = logger.drone_p_d_error[step]
+
+
+
+        plot_3d_helper(ax, logger, step, length_unit)
+
+        
+        # Coordinate system
+        # plot_vec_3d(ax, curr_p, curr_p + unit(torque), 'black')
+        plot_vec_3d(ax, curr_p, curr_p + quat_apply(curr_q, [1,0,0]), 'red')
+        plot_vec_3d(ax, curr_p, curr_p + quat_apply(curr_q, [0,1,0]), 'green')
+        plot_vec_3d(ax, curr_p, curr_p + quat_apply(curr_q, [0,0,1]), 'blue')
+
+        plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,1])), 'black')
+
+        plot_vec_3d(ax, curr_p, curr_p + p_d_err, 'orange')
+        # fig.show()
+
+        ax.set_xlim(min(logger.actual_states[:max_step, 0] - 0.5), max(logger.actual_states[:max_step, 0]) + 0.5)
+        ax.set_ylim(min(logger.actual_states[:max_step, 1] - 0.5), max(logger.actual_states[:max_step, 1]) + 0.5)
+        ax.set_zlim(min(logger.actual_states[:max_step, 2] - 0.5), max(logger.actual_states[:max_step, 2]) + 0.5)
+        ax.set_title(f"{title}: {logger.t[step]}s")
+        # ax.set_aspect('equal', adjustable='box')
+        # ax.axis('square')
+        plt.pause(logger.sim.dt)
+
+        if step + interval + 1 > max_step:
+            return input("Press w to watch again:")
+
+        ax.cla()
+
+        
+        
+        # plt.close(fig)
+
+        
+        
+    # pass
+
+
+
+########################################
+#            State Vectors             #
+########################################

@@ -105,17 +105,11 @@ if __name__ == "__main__":
 
         if sim.actual_state[2] < 0 or drone.dead:
             # if sim.drone.state[2] < 0:
-            print("FUCKASS U CRASHED")
+            print("U CRASHED")
             break
 
     # Set ending step
     logger.step = step
-
-    print(step)
-    print(logger.step)
-
-
-        
 
     ########################################
     #             Analysis                 #
@@ -136,22 +130,33 @@ if __name__ == "__main__":
 
     plot_3(logger.t[0:step], logger.actual_torques[:step,:], "Drone Actual Torques")
 
-    # plt.figure()
-    # plt.plot(logger.t[0:step], logger.actual_forces[0:step])
-    # plt.title("Actual Forces")
-    # plt.legend(["X", "Y", "Z"])
-    # plt.legend()
-
-    # plt.figure()
-    # plt.plot(logger.t[0:step], logger.actual_torques[0:step])
-    # plt.title("Actual Torques")
-    # plt.legend()
-    # plt.legend(["X", "Y", "Z"])
+    plot_3(logger.t[:step], logger.actual_a_body[:step,:], "a body")
+    plot_3(logger.t[:step], logger.actual_w_body[:step,:], "w body")
 
     plot_3d(logger)
 
-    plt.show()
 
-    # logger.save("OH")
+    if DEBUG:
+
+        plt.show(block=False)
+
+        i = 1
+        while float(i) > 0:
+            i = debug_3d(logger, figsize=(10,10), speed=i) 
+    else: 
+        plt.show()
+
+    if filename not in ["", None]:
+        logger.save(filename)
+
+    # print(list(logger.actual_states[:5, 10:13]))
+    # print()
+    # # print(list(logger.actual_states[:5, 10:13]))
+    # print([
+    #     quat_apply(q_B2L.T, w.T)
+    #     for q_B2L,w 
+    #     in zip(logger.actual_states[1:6, 6:10], logger.actual_w_body[1:6])
+    # ])
+    # print()
 
     # print("WHAT")
