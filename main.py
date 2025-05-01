@@ -76,8 +76,8 @@ if __name__ == "__main__":
     ########################################
 
     drone.set_attitude_controller_1(
-        np.diag(3 * [attitude_controller_1_kp]),
-        np.diag(3 * [attitude_controller_1_kd]),
+        np.diag(attitude_controller_1_kp),
+        np.diag(attitude_controller_1_kd),
     )
 
     drone.set_position_controller_1(
@@ -132,6 +132,14 @@ if __name__ == "__main__":
 
     plot_3(logger.t[:step], logger.actual_a_body[:step,:], "a body")
     plot_3(logger.t[:step], logger.actual_w_body[:step,:], "w body")
+
+
+    
+    plot_3(logger.t[:step], [unit(quat_apply(q_d, [0,0,1])) for q_d in logger.drone_desired_quat[:step,:]], "q_des")
+
+
+    # plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,1])), 'black')
+
 
     plot_3d(logger)
 

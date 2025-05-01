@@ -274,6 +274,8 @@ class Drone:
         assert np.shape(p_desired_L) == (3,)
         assert np.shape(v_desired_L) == (3,)
 
+        max_angle = 80 * DEG2RAD
+
 
         p = self.p_calc
         v = self.v_calc
@@ -286,13 +288,24 @@ class Drone:
         p_err = p_desired_L - p
         v_err = v_desired_L - v
 
-        # if norm(p_err) < 2:
-        #     return np.array([1,0,0,0]), self.F_g
-
+        # Force
         F_desired = np.matmul(kp,p_err.T) + np.matmul(kd,v_err.T) + np.array([0,0,self.F_g]).T
+        dir_for_orientation = F_desired
+
+        if F_desired[2] < 0:
+            dir_for_orientation = -(self.F_g/F_desired[2]) * F_desired
+            dir_for_orientation[2] *= -1
+            F_desired[2] = (self.F_g - self.min_thrust_N) * ( np.arctan(F_desired[2] / 2) + np.pi/2 ) + self.min_thrust_N
+            # F_desired[2] = self.min_thrust_N
+            # breakpoint()
+
+
+
+
+
         # breakpoint()
         # n_hat = quat_apply(q, [0,0,1])
-        z_axis_hat = unit(F_desired)
+        z_axis_hat = unit(dir_for_orientation)
 
         
         # heading = np.copy(p_err) # Automatically aligns with X axis if no heading , but some bullshit lowkey
@@ -314,7 +327,6 @@ class Drone:
         R = np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat))
         q_des = quat_from_R(R)
         # print(quat_apply(q_des, [0,0,1]))
-        print(quat_apply(q_des, [0,0,1]))
 
         thrust = norm(F_desired)
 
@@ -556,3 +568,7 @@ class Drone:
         # Command motors based on lookup tables
 
         ######### Propogation? #########
+
+
+
+# TODO: SPIN CONTROL!?!?! Aborts current command to go vertical and nullify vertical velocity
