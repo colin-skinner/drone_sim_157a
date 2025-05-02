@@ -1,8 +1,9 @@
 from .Drone import Drone
 import numpy as np
+from dataclasses import dataclass
 from .quaternion_helpers import *
 from .integrators import rk4_func, euler_func
-
+    
 
 class Simulation:
     """Define environment and adds forces to a drone"""
@@ -12,11 +13,13 @@ class Simulation:
         self.dt = dt
         self.t = 0
         self.t_max = t_max
-        self.actual_state = state0
+        self.actual_state = state0.copy()
 
         # List of actual forces and torques used to calculate net forces and torques at each timestep
         self.forces: list[np.ndarray] = []
         self.torques: list[np.ndarray] = []
+        self.total_force: np.ndarray = np.zeros(3)
+        self.total_torque: np.ndarray = np.zeros(3)
 
     ########################################
     #      Drone Initialization            #
@@ -31,6 +34,107 @@ class Simulation:
     def get_time(self):
         return self.t
 
+    
+    ########################################
+    #            Sensor Noise              #
+    ########################################
+
+    def add_accel_noise(
+        self,
+        bias: np.ndarray = np.zeros(3),
+        noise_std: np.ndarray = np.zeros(3),
+    ):
+
+        if len(bias) != 3:
+            raise ValueError("Length of accelerometer bias array must be 3")
+
+        if len(noise_std) != 3:
+            raise ValueError(
+                "Length of accelerometer standard deviation array must be 3"
+            )
+
+        self.accel_bias = np.array(bias)
+        self.accel_noise_std = np.array(noise_std)
+
+    def add_gyro_noise(
+        self,
+        bias: np.ndarray = np.zeros(3),
+        noise_std: np.ndarray = np.zeros(3),
+    ):
+
+        if len(bias) != 3:
+            raise ValueError("Length of gyroscope bias array must be 3")
+
+        if len(noise_std) != 3:
+            raise ValueError("Length of gyroscope standard deviation array must be 3")
+
+        self.gyro_bias = np.array(bias)
+        self.gyro_noise_std = np.array(noise_std)
+
+    def add_lidar_noise(
+        self,
+        bias: np.ndarray = np.zeros(3),
+        noise_std: np.ndarray = np.zeros(3),
+    ):
+        if len(bias) != 3:
+            raise ValueError("Length of lidar bias array must be 3")
+
+        if len(noise_std) != 3:
+            raise ValueError("Length of lidar standard deviation array must be 3")
+
+        self.lidar_bias = np.array(bias)
+        self.lidar_noise_std = np.array(noise_std)
+
+    def add_imu_misalignment(self, m_prime_to_m: np.ndarray):
+        assert len(m_prime_to_m) == 4
+        m_prime_to_m = unit(m_prime_to_m)
+
+    ##########################################################################
+    #                             Sensor Noise                               #
+    ##########################################################################
+
+    def simulate_accel_noise(self, accel: np.ndarray):
+
+        biases = self.accel_bias
+        stds = self.accel_noise_std
+
+        new_accel = np.array(
+            [
+                measurement + np.random.normal(bias, std)
+                for measurement, std, bias in zip(accel, stds, biases)
+            ]
+        )
+
+        return new_accel
+
+    def simulate_gyro_noise(self, gyro: np.ndarray):
+
+        biases = self.gyro_bias
+        stds = self.gyro_noise_std
+
+        new_gyro = np.array(
+            [
+                measurement + np.random.normal(bias, std)
+                for measurement, std, bias in zip(gyro, stds, biases)
+            ]
+        )
+
+        return new_gyro
+
+    def simulate_lidar_noise(self, lidar: np.ndarray):
+
+        biases = self.lidar_bias
+        stds = self.lidar_noise_std
+
+        new_lidar = np.array(
+            [
+                measurement + np.random.normal(bias, std)
+                for measurement, std, bias in zip(lidar, stds, biases)
+            ]
+        )
+
+        return new_lidar
+            
     ########################################
     #        Forces and Torques            #
     ########################################
@@ -82,6 +186,24 @@ class Simulation:
         self.total_torque = sum(self.torques)
 
     ########################################
+    #               Noise                  #
+    ########################################
+
+    def generate_navigation_data(self): 
+        q_L2B = quat_inv(self.actual_state[6:10])
+
+        w_body = self.actual_state[10:13]
+        a_body = self.total_force.copy() / self.drone.mass # from previous step?
+        self.lidar_g: np.ndarray = self.actual_state[0:3]
+
+        self.a_body = quat_apply(q_L2B, a_body)
+        self.w_body = quat_apply(q_L2B, w_body)
+
+        # Add noise
+
+        return self.a_body, self.w_body, self.lidar_g
+
+    ########################################
     #           Simulation                 #
     ########################################
 
@@ -129,7 +251,7 @@ class Simulation:
         # self.actual_state = self.next_state
         self.t = self.t + self.dt
 
-        if np.isclose(self.t % 10, 0, atol=0.01):
+        if np.isclose(self.t % 10, 0, atol=self.dt):
             print(f"Simulating t={int(self.t)}s")
 
         # Calculates drone motor forces based off of its state

@@ -1,7 +1,10 @@
 import numpy as np
 from .quaternion_helpers import *
+from .filters import EKF
 from typing import Callable
 from pprint import pprint
+from copy import copy
+    
 
 class Drone:
 
@@ -12,7 +15,7 @@ class Drone:
 
         if state0 is not None and type(state0) is not np.ndarray:
             raise ValueError("If state0 is input, must be an ndarray")
-        self.state = state0
+        self.state = state0.copy()
         self.fsm_state = "idle"
         self.full_navigation = False
         self.dt = dt
@@ -29,6 +32,16 @@ class Drone:
         self.prev_angle_error = 0  # rad
         self.prev_p_error = 0
 
+        # Functions
+        self.get_sim_state = None
+        self.get_sim_time = None
+        self.get_navigation_data = None
+
+        # arrays for debugging
+        self.a_body_array: list[np.ndarray] = []
+        self.w_body_array: list[np.ndarray] = []
+        self.p_glob_array: list[np.ndarray] = []
+
     def add_sim_functions(
         self,
         sim_state_func: Callable[[], np.ndarray],
@@ -37,62 +50,27 @@ class Drone:
         self.get_sim_state = sim_state_func
         self.get_sim_time = sim_time_func
 
+    def add_navigation_data_functions(
+        self,
+        a_w_p_data_func: Callable[[], tuple[np.ndarray, np.ndarray, np.ndarray]],
+        full_navigation = True
+    ):
+        self.get_navigation_data = a_w_p_data_func
+        self.full_navigation = True
+        
+    
+    def make_ekf(self,
+        P0: np.ndarray,
+        accel_bias: np.ndarray,
+        gyro_bias: np.ndarray,
+        lidar_bias: np.ndarray
+        ):
+        self.ekf = EKF(self.state[0:10], P0, self.dt)
+        self.ekf.add_biases(accel_bias, gyro_bias, lidar_bias)
+
     def add_path(self, path_arr: dict[float, list[float]]):
-        self.path_arr = path_arr
+        self.path_arr = path_arr.copy()
 
-    ############################################################################################################
-    #                                       Sensor Initialization                                              #
-    ############################################################################################################
-
-    def add_accel_noise(
-        self,
-        bias: np.ndarray = np.zeros(3),
-        noise_std: np.ndarray = np.zeros(3),
-    ):
-
-        if len(bias) != 3:
-            raise ValueError("Length of accelerometer bias array must be 3")
-
-        if len(noise_std) != 3:
-            raise ValueError(
-                "Length of accelerometer standard deviation array must be 3"
-            )
-
-        self.accel_bias = np.array(bias)
-        self.accel_noise_std = np.array(noise_std)
-
-    def add_gyro_noise(
-        self,
-        bias: np.ndarray = np.zeros(3),
-        noise_std: np.ndarray = np.zeros(3),
-    ):
-
-        if len(bias) != 3:
-            raise ValueError("Length of gyroscope bias array must be 3")
-
-        if len(noise_std) != 3:
-            raise ValueError("Length of gyroscope standard deviation array must be 3")
-
-        self.gyro_bias = np.array(bias)
-        self.gyro_noise_std = np.array(noise_std)
-
-    def add_lidar_noise(
-        self,
-        bias: np.ndarray = np.zeros(3),
-        noise_std: np.ndarray = np.zeros(3),
-    ):
-        if len(bias) != 3:
-            raise ValueError("Length of lidar bias array must be 3")
-
-        if len(noise_std) != 3:
-            raise ValueError("Length of lidar standard deviation array must be 3")
-
-        self.lidar_bias = np.array(bias)
-        self.lidar_noise_std = np.array(noise_std)
-
-    def add_imu_misalignment(self, m_prime_to_m: np.ndarray):
-        assert len(m_prime_to_m) == 4
-        m_prime_to_m = unit(m_prime_to_m)
 
     ############################################################################################################
     #                                        Drone Initialization                                              #
@@ -114,15 +92,23 @@ class Drone:
         self.arm_distance = arm_distance
         self.prop_height = prop_height
 
+        self.num_prop = num
+        self.kd = kd
+
         self.force_bounds_N = [min_force_kgf * 9.81, max_force_kgf * 9.81]
         self.max_thrust_N = 4 * max_force_kgf * 9.81
         self.min_thrust_N = 4 * min_force_kgf * 9.81
-        self.num_prop = num
-        self.kd = kd
 
         # Allocation Matrix
         # Reference: https://www.cantorsparadise.org/how-control-allocation-for-multirotor-systems-works-f87aff1794a2/
         r = arm_distance / np.sqrt(2)  # Distance from prop to central axis
+
+        min_torque = 2 * r * self.min_thrust_N
+        max_torque = 2 * r * self.max_thrust_N
+        self.max_torque_X_Y_Nm = max_torque - min_torque
+        
+        self.max_torque_Z_Nm = 2 * kd * r * (max_force_kgf - min_force_kgf) * 9.81
+
 
         # SEEMED TO WORK FOR THE CONTROLLER
         allocation_matrix = np.array(
@@ -151,7 +137,7 @@ class Drone:
         self.mass = mass
         self.F_g = 9.81 * self.mass
         self.dimensions = np.array(dimensions)
-        self.I = I
+        self.I = I.copy()
         self.I_inv = np.linalg.inv(I)
 
     ############################################################################################################
@@ -162,65 +148,21 @@ class Drone:
         assert np.shape(Kp) == (3, 3)
         assert np.shape(Kd) == (3, 3)
 
-        self.attitude_controller_1_Kp = Kp
-        self.attitude_controller_1_Kd = Kd
+        self.attitude_controller_1_Kp = Kp.copy()
+        self.attitude_controller_1_Kd = Kd.copy()
 
     def set_position_controller_1(self, Kp: np.ndarray, Kd: np.ndarray):
         assert np.shape(Kp) == (3, 3)
         assert np.shape(Kd) == (3, 3)
 
-        self.position_controller_1_Kp = Kp
-        self.position_controller_1_Kd = Kd
+        self.position_controller_1_Kp = Kp.copy()
+        self.position_controller_1_Kd = Kd.copy()
 
     ############################################################################################################
     #                                                  Loop                                                    #
     ############################################################################################################
 
-    ##########################################################################
-    #                             Sensor Noise                               #
-    ##########################################################################
 
-    def simulate_accel_noise(self, accel: np.ndarray):
-
-        biases = self.accel_bias
-        stds = self.accel_noise_std
-
-        new_accel = np.array(
-            [
-                measurement + np.random.normal(bias, std)
-                for measurement, std, bias in zip(accel, stds, biases)
-            ]
-        )
-
-        return new_accel
-
-    def simulate_gyro_noise(self, gyro: np.ndarray):
-
-        biases = self.gyro_bias
-        stds = self.gyro_noise_std
-
-        new_gyro = np.array(
-            [
-                measurement + np.random.normal(bias, std)
-                for measurement, std, bias in zip(gyro, stds, biases)
-            ]
-        )
-
-        return new_gyro
-
-    def simulate_lidar_noise(self, lidar: np.ndarray):
-
-        biases = self.lidar_bias
-        stds = self.lidar_noise_std
-
-        new_lidar = np.array(
-            [
-                measurement + np.random.normal(bias, std)
-                for measurement, std, bias in zip(lidar, stds, biases)
-            ]
-        )
-
-        return new_lidar
 
     ##########################################################################
     #                               Navigation                               #
@@ -228,7 +170,7 @@ class Drone:
     """
         Obtaining current state.
         
-        - Adds noise to state variable
+        - Gets state OR noise data
         - Runs Kalman filter
     """
     ##########################################################################
@@ -240,10 +182,6 @@ class Drone:
         - Generate errors based on flight path
 
     """
-
-    def generate_path_velocity(self, state_desired: np.ndarray):
-        """Uses path difference and current velocity heading to generate a desired velocity"""
-        pass
 
     ##########################################################################
     #                                Controls                                #
@@ -274,46 +212,28 @@ class Drone:
 
         # Force
         self.F_desired = np.matmul(kp,p_err.T) + np.matmul(kd,v_err.T) + np.array([0,0,self.F_g]).T
-        dir_for_orientation = self.F_desired
 
         # Clip to maximum force
         if norm(self.F_desired) > self.max_thrust_N * 1.1:
             self.F_desired = self.F_desired * abs(self.max_thrust_N / norm(self.F_desired))
 
-        # Vertical force fix
-        if self.F_desired[2] < 0: # TODO: make better condition for this
-        # if angle_between(self.F_desired, [0,0,1]) > max_angle:
-            # dir_for_orientation = -(self.F_g/self.F_desired[2]) * self.F_desired
-            # dir_for_orientation = np.copy(self.F_desired)
-            dir_for_orientation[2] *= -1
-
-            # Mapping to range of minimum thrusts (very proud of this)
-            self.F_desired[2] = (self.F_g - self.min_thrust_N) * ( np.arctan(self.F_desired[2] / 2) + np.pi/2 ) + self.min_thrust_N
-        # else:
-        #     self.F_desired[2] = (self.max_thrust_N - self.F_g) * ( np.arctan(self.F_desired[2] / 2) + np.pi/2 ) + self.F_g
-
-         # Construct orthogonal frame to find desired quaternion
-        z_axis_hat = unit(dir_for_orientation)
-        x_axis_hat = unit(np.cross(z_axis_hat, np.cross(np.array([1,0,0]), z_axis_hat)) ) # assigns heading based off of desired velocity. TODO: maybe DONT DO THIS
-
-        # x_axis_hat = unit(np.cross(z_axis_hat, np.cross(v_desired_L, z_axis_hat)) ) # assigns heading based off of desired velocity. TODO: maybe DONT DO THIS
-
-        # print(x_axis_hat)
+        # Thrust scaling -> https://www.desmos.com/calculator/gsl7czi1f2
+        if self.F_desired[2] < 0: # TODO: make better condition for this? seems to work very well
+            self.F_desired[2] = (self.F_g - self.min_thrust_N) * ( np.arctan(self.F_desired[2] / (self.F_g - self.min_thrust_N) * np.pi/2) + np.pi/2 ) * 2 / np.pi + self.min_thrust_N
+        # else: # TODO: maybe use????
+        #     self.F_desired[2] = (self.max_thrust_N - self.F_g) * ( np.arctan(self.F_desired[2] / (self.max_thrust_N - self.F_g) * np.pi/2) ) * 2 / np.pi  + self.F_g
+        
+        # Construct orthogonal frame to find desired quaternion
+        z_axis_hat = unit(self.F_desired)
+        x_axis_hat = unit(np.cross(z_axis_hat, np.cross(np.array([1,0,0]), z_axis_hat)) ) # assigns heading based off of X axis
         y_axis_hat = unit(np.cross(z_axis_hat, x_axis_hat))
 
         R = np.column_stack((x_axis_hat, y_axis_hat, z_axis_hat))
         q_des = unit(quat_from_R(R))
-        # q_des = quat_from_R(R)
-        # print(R)
-        # print(quat_apply(q_des, [0,0,1]))
-        # print(norm())
-        # breakpoint()
-
 
         thrust = norm(self.F_desired)
 
-        # print(R)
-        # print(quat_apply(q_des, [0,0,1]))
+        # breakpoint()
 
         return q_des, thrust
 
@@ -330,6 +250,10 @@ class Drone:
         w_error_L = self.w_calc - w_desired_L
 
         torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4].transpose()) - np.matmul(kd, w_error_L.transpose())
+
+        # Clip torques based on max, but I'm not sure this is even being used
+        torque_L[0:2] = 2 * self.max_torque_X_Y_Nm * np.arctan(torque_L[0:2] * np.pi / 2 / self.max_torque_X_Y_Nm) / np.pi
+        torque_L[2] = 2 * self.max_torque_Z_Nm * np.arctan(torque_L[2] * np.pi / 2 / self.max_torque_Z_Nm) / np.pi
 
         return torque_L
 
@@ -348,56 +272,6 @@ class Drone:
             commands, a_min=self.force_bounds_N[0], a_max=self.force_bounds_N[1]
         )
         return result
-
-    ##########################################################################
-    #                         Sample Controllers                             #
-    ##########################################################################
-
-    def z_spin_controller(self, spin: float = 0.02):
-        """Returns actuator inputs in a 4-element np.ndarray"""
-
-        F_g = self.F_g
-
-        F_extra = 0  # N
-
-        # Minimum force from the propellers
-        min_force = 4 * self.force_bounds_N[0]
-
-        thrusts = (
-            self.allocate_thrusts(F_g + F_extra - min_force, np.array([0, 0, spin]))
-            + min_force / 4
-        )
-
-        return thrusts
-
-    def vertical_sample_controller(self, vertical_angle: float):
-        """Returns actuator inputs in a 4-element np.ndarray"""
-
-        # p_z
-        kp = 0.15
-        kd = 0.5
-
-        if self.t > 50:
-            desired = 100
-        else:
-            desired = 250
-
-        err = desired - self.state[2]
-
-        #                       v_z - v_z_prev
-        # additional = - kp * (self.state[3] - prev_state[3])
-        additional = kp * err
-
-        # Only after first timestep
-        if self.t > self.dt:
-            additional += kd * (err - self.prev_p_error) / self.dt
-
-        thrust = self.F_g / np.cos(vertical_angle) + additional
-
-        self.prev_p_error = err
-
-        return thrust  # N
-
 
     ############################################################################################################
     #                                                Running                                                   #
@@ -449,15 +323,21 @@ class Drone:
 
         ######### Navigation #########
 
-        prev_state = self.state
+        self.t += self.dt
+        sim_state = self.get_sim_state()
 
         if self.full_navigation:
-            pass
-        else:
+            self.a_meas, self.w_meas, self.p_meas = self.get_navigation_data()
 
-            
-            sim_state = self.get_sim_state() # OR Add option to feed sensor values instead
-            self.t += self.dt
+            # print(a_meas, w_meas, p_meas)
+            self.a_body_array.append(self.a_meas)
+            self.w_body_array.append(self.w_meas)
+            self.p_glob_array.append(self.p_meas)
+
+            self.ekf.predict(self.a_meas, self.w_meas)
+            # print(ekf.state)
+
+            self.ekf.update(self.p_meas)
 
             # Calculated state is actual state
             self.p_calc = sim_state[0:3]
@@ -465,20 +345,28 @@ class Drone:
             self.q_calc = sim_state[6:10]
             self.w_calc = sim_state[10:13]
 
-            # breakpoint()
+            # # KALMAN
+            # self.p_calc = self.ekf.state[0:3]
+            # self.v_calc = self.ekf.state[3:6]
+            # self.q_calc = self.ekf.state[6:10]
+            # self.w_calc = self.w_meas
+            
+                        
+        else:
+                        
 
-        self.state = np.concat([self.p_calc, self.v_calc, self.q_calc, self.w_calc])
+            # Calculated state is actual state
+            self.p_calc = sim_state[0:3]
+            self.v_calc = sim_state[3:6]
+            self.q_calc = sim_state[6:10]
+            self.w_calc = sim_state[10:13]
 
-        # # Simulated sensor Noise
-        # self.a_true = (self.state[3:6] - prev_state[3:6]) / self.dt
 
-        # self.a_noise = self.simulate_accel_noise(self.a_true)
-        # self.w_noise = self.simulate_gyro_noise(self.w_true)
-        # self.lidar_p_noise = self.simulate_lidar_noise(self.p_true)
 
         # FIltering
         # a,w -> p,v,q,w
 
+        self.state = np.concat([self.p_calc, self.v_calc, self.q_calc, self.w_calc])
 
         ######### Guidance #########
 

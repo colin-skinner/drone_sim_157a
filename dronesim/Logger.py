@@ -39,9 +39,12 @@ class Logger:
         self.drone_p_d_error = np.zeros((steps, 3))
 
 
-        # For Kalman filter training
+        # For Kalman filter
         self.actual_a_body = np.zeros((steps, 3))
         self.actual_w_body = np.zeros((steps, 3))
+        self.lidar_g = np.zeros((steps, 3))
+
+        self.ekf_state = np.zeros((steps, 10))
 
         # Time
         self.t = np.linspace(0, t_max, steps)  # TODO: figure out if this works
@@ -79,13 +82,12 @@ class Logger:
         self.drone_p_d_error[step, :] = self.drone.p_d_err
 
         # For Kalman filter training
-        q_L2B = quat_inv(self.drone.state[6:10])
-        w_body = self.sim.actual_state[10:13]
-        a_body = self.sim.total_force / self.drone.mass
+        self.actual_a_body[step, :] = self.drone.a_meas
+        self.actual_w_body[step, :] = self.drone.w_meas
+        self.lidar_g[step, :] = self.drone.p_meas
 
-
-        self.actual_a_body[step, :] = quat_apply(q_L2B, a_body)
-        self.actual_w_body[step, :] = quat_apply(q_L2B, w_body)
+        self.ekf_state[step, :] = self.drone.ekf.state
+        
         self.step = step
 
     def create_dataframe(self):

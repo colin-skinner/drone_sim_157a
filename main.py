@@ -57,13 +57,15 @@ if __name__ == "__main__":
     drone.define_drone(mass, I, dimensions / 100)
 
     # Simulation Properties
-    drone.add_imu_misalignment(imu_misalignment)
-    drone.add_accel_noise(accel_bias, accel_std)
-    drone.add_gyro_noise(gyro_bias, gyro_std)
-    drone.add_lidar_noise(lidar_bias, lidar_std)
+    sim.add_imu_misalignment(imu_misalignment)
+    sim.add_accel_noise(accel_bias, accel_std)
+    sim.add_gyro_noise(gyro_bias, gyro_std)
+    sim.add_lidar_noise(lidar_bias, lidar_std)
 
     sim.add_drone(drone)
     drone.add_sim_functions(sim.get_state, sim.get_time)
+    drone.make_ekf(P0, accel_bias, gyro_bias, lidar_bias)
+    drone.add_navigation_data_functions(sim.generate_navigation_data)
 
     ########################################
     #                Path                  #
@@ -121,6 +123,8 @@ if __name__ == "__main__":
     ########################################
 
     plot_state_vector(logger)
+    plot_3(logger.t[:step], logger.ekf_state[:step, 0:3], "EKF Position")
+    plot_3(logger.t[:step], logger.ekf_state[:step, 3:6], "EKF Velocity")
 
     plot_drone_axis(logger, [0,0,1], "Drone Normal Vector")
     plot_drone_axis(logger, [1,0,0], "Drone X Vector")
@@ -135,8 +139,11 @@ if __name__ == "__main__":
 
     plot_3(logger.t[0:step], logger.actual_torques[:step,:], "Drone Actual Torques")
 
-    plot_3(logger.t[:step], logger.actual_a_body[:step,:], "a body")
-    plot_3(logger.t[:step], logger.actual_w_body[:step,:], "w body")
+    # plot_3(logger.t[:step], logger.actual_a_body[:step,:], "a body")
+    # plot_3(logger.t[:step], logger.actual_w_body[:step,:], "w body")
+
+    plot_3(logger.t[:step], drone.a_body_array, "a body drone")
+    plot_3(logger.t[:step], drone.w_body_array, "w body drone")
 
 
     
