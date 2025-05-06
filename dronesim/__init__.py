@@ -4,6 +4,6 @@ from .Logger import Logger
 from .quaternion_helpers import *
 from .constants import *
 from .plotting import *
-from .filters import EKF
+from .algorithms import EKF
 
 from .ThrustData import ThrustData

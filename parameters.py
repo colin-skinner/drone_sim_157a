@@ -6,12 +6,12 @@ from dronesim import quat_from_axis_rot, ThrustData
 #           Initial State              #
 ########################################
 
-p0_m = [0, 0, 2]
+p0_m = [0.0, 0.0, 2.0]
 # p0_m = [0,5,8]
-v0_m = [0, 0, 0]
-q0 = [1, 0, 0, 0]  # Identity quaternion
-q0 = quat_from_axis_rot(80, [0, 1, 0]).tolist()  # 20 deg angle in y
-w0_rad_s = [0, 0, 0]
+v0_m = [0.0, 0.0, 0.0]
+q0 = [1.0, 0.0, 0.0, 0.0]  # Identity quaternion
+# q0 = quat_from_axis_rot(80, [0, 1, 0]).tolist()  # 20 deg angle in y
+w0_rad_s = [0.0, 0.0, 0.0]
 state0 = np.array(p0_m + v0_m + q0 + w0_rad_s)
 
 ########################################
@@ -23,6 +23,7 @@ I = np.array([[0.00030,         0,              0],
               [0,               0.00030,        0],
               [0,               0,              0.00045]])
 dimensions = np.array([13, 13, 8])  # input into list as cm
+
 
 
 ########################################
@@ -42,6 +43,17 @@ max_prop_force_kgf = max(thrust_data.lookup_table["Thrust (kgf)"])
 # print(f"{max_prop_force_kgf=}")
 
 # ADDD LOOKUP TABLE PROP
+
+########################################
+#               Kalman                 #
+########################################
+
+P0 = np.zeros((10, 10))
+P0[0:3, 0:3] = np.eye(3) * 0.05**2                  # p in m
+P0[3:6, 3:6] = np.eye(3) * 0.05**2                  # v in m/s
+P0[6:10, 6:10] = np.eye(4) * 1e-5                   # q
+
+
 
 ########################################
 #               Path                   #
@@ -65,24 +77,24 @@ p_d_arr = { # testing Z
     10: ([0,0,5],[0,0,0])
 }
 
-p_d_arr = { # testing Z
-    0: ([0,0,2],[0,0,0]),
-    2: ([0,1,4],[0,0,1]),
-    4: ([0,2,6],[0,0,0.2]),
-    6: ([0,3,8],[0,0,0.4]),
-    8: ([0,8,10],[0,0,0.6]),
-    12: ([0,5,5],[0,0,0])
-}
-
-
-
-# p_d_arr = { # testing X
-#     0: [0,0,2],
-#     2: [1,0,2],
-#     4: [2,0,2],
-#     6: [3,0,2],
-#     8: [4,0,2],
+# p_d_arr = { # wacky
+#     0: ([0,0,2],[0,0,0]),
+#     2: ([0,1,4],[0,0,1]),
+#     4: ([0,2,6],[0,0,0.2]),
+#     6: ([0,3,8],[0,0,0.4]),
+#     8: ([0,8,10],[0,0,0.6]),
+#     12: ([0,5,5],[0,0,0])
 # }
+
+
+
+p_d_arr = { # testing X
+    0: ([0,0,2],[0,0,0]),
+    2: ([1,0,2],[0,0,0]),
+    4: ([2,0,2],[0,0,0]),
+    6: ([3,0,2],[0,0,0]),
+    8: ([4,0,2],[0,0,0])
+}
 
 
 # p_d_arr = { # testing Y
@@ -126,24 +138,28 @@ dt = 0.001
 
 imu_misalignment = [1,0,0,0]
 
-accel_bias = [0,0,0]
-accel_std = [0,0,0]
+accel_bias = [0] * 3
+accel_std = [0.02] * 3
 
-gyro_bias = [0,0,0]
-gyro_std = [0,0,0]
+gyro_bias = [0] * 3
+gyro_std = [0.002] * 3
 
-lidar_bias = [0,0,0]
-lidar_std = [0,0,0]
+lidar_bias = [0] * 3
+lidar_std = [0.03] * 3
 
-filename = "KALMAN_TEST"
+drone_full_navigation = True
+
+filename = "x_test"
 
 DEBUG = True
 # DEBUG = False
 
-debug_start_time = 7.95   # Seconds into sim to start
+debug_start_time = 0
+# debug_start_time = 7.95   # Seconds into sim to start
 # debug_start_time = 11.9
-speed_interval = 25    # Frames to travel at once for 0.001 FAST
-speed_interval = 15    # Frames to travel at once for 0.001 SLOW
+speed_interval = 25  # Frames to travel at once for 0.001 FAST
+# speed_interval = 15    # Frames to travel at once for 0.001 SLOW
+# speed_interval = 7    # Frames to travel at once for 0.001 SLOW
 # speed_interval = 2    # Frames to travel at once for 0.01
 
 ########################################
@@ -172,11 +188,11 @@ attitude_controller_1_kd = 3 * [0.025] # GOOD
 # b = 0.4
 a = 10.5
 b = 5.5
-position_controller_1_kp = [12.5, 12.5, 9.5] # good Z
-position_controller_1_kd = [6.5, 6.5, 5.2] # good Z
+position_controller_1_kp = [12.5, 12.5, 12.5] # good Z
+position_controller_1_kd = [6.5, 6.5, 6.5] # good Z
 
-position_controller_1_kp = 3 * [a]
-position_controller_1_kd = 3 * [b]
+# position_controller_1_kp = 3 * [a]
+# position_controller_1_kd = 3 * [b]
 
 
 

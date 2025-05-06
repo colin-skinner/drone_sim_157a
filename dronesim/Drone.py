@@ -1,6 +1,6 @@
 import numpy as np
 from .quaternion_helpers import *
-from .filters import EKF
+from .algorithms import EKF
 from typing import Callable
 from pprint import pprint
 from copy import copy
@@ -56,7 +56,7 @@ class Drone:
         full_navigation = True
     ):
         self.get_navigation_data = a_w_p_data_func
-        self.full_navigation = True
+        self.full_navigation = full_navigation
         
     
     def make_ekf(self,
@@ -329,15 +329,19 @@ class Drone:
         if self.full_navigation:
             self.a_meas, self.w_meas, self.p_meas = self.get_navigation_data()
 
-            # print(a_meas, w_meas, p_meas)
+            # For debugging
             self.a_body_array.append(self.a_meas)
             self.w_body_array.append(self.w_meas)
             self.p_glob_array.append(self.p_meas)
 
+            #TODO: actual noising
+            self.a_meas = self.a_meas + np.random.normal(0, 0.02, self.a_meas.shape) 
+            self.w_meas = self.w_meas + np.random.normal(0, 0.002, self.w_meas.shape) 
+
             self.ekf.predict(self.a_meas, self.w_meas)
             # print(ekf.state)
 
-            self.ekf.update(self.p_meas)
+            # self.ekf.update(self.p_meas)
 
             # Calculated state is actual state
             self.p_calc = sim_state[0:3]

@@ -65,7 +65,7 @@ if __name__ == "__main__":
     sim.add_drone(drone)
     drone.add_sim_functions(sim.get_state, sim.get_time)
     drone.make_ekf(P0, accel_bias, gyro_bias, lidar_bias)
-    drone.add_navigation_data_functions(sim.generate_navigation_data)
+    drone.add_navigation_data_functions(sim.generate_navigation_data, drone_full_navigation)
 
     ########################################
     #                Path                  #

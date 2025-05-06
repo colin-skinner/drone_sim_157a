@@ -193,7 +193,7 @@ class Simulation:
         q_L2B = quat_inv(self.actual_state[6:10])
 
         w_body = self.actual_state[10:13]
-        a_body = self.total_force.copy() / self.drone.mass # from previous step?
+        a_body = self.total_force.copy() / self.drone.mass + np.array([0, 0, GRAVITY_M_S2]) # from previous step?
         self.lidar_g: np.ndarray = self.actual_state[0:3]
 
         self.a_body = quat_apply(q_L2B, a_body)

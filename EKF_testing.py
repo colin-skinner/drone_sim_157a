@@ -3,8 +3,10 @@ from dronesim import *
 from parameters import *
 import os, csv
 import pandas as pd
-
-filename = "results/weird_kalman.csv"
+np.set_printoptions(edgeitems=30, linewidth=100000, 
+    formatter=dict(float=lambda x: "%.3g" % x))
+    
+filename = "results/x_test_kalman.csv"
 
 data = pd.read_csv(f'{os.getcwd()}/{filename}')
 
@@ -17,10 +19,6 @@ dt = t[1] - t[0]
 a_body = a_body + np.random.normal(0, 0.02, a_body.shape) 
 w_body = w_body + np.random.normal(0, 0.002, w_body.shape) 
 
-# plt.plot(w_body)
-# plt.plot(w_body2)
-# plt.show()
-# breakpoint()
 
 # Cov
 P0 = np.zeros((10, 10))
@@ -31,7 +29,7 @@ P0[6:10, 6:10] = np.eye(4) * 1e-5                   # q
 
 # EKF testing
 
-ekf = EKF(state0[0:10], P0, 0.1)
+ekf = EKF(state0[0:10], P0, dt)
 
 ekf.add_biases(accel_bias, gyro_bias, lidar_bias)
 
@@ -53,11 +51,15 @@ for i in range(size):
     ekf.predict(accel, gyro)
     # print(ekf.state)
 
-    ekf.update(lidar)
+    # if i % 100 == 1:
+    #     ekf.update(lidar)
+    #     print("AH")
     # print(ekf.state)
 
     if i % 100 == 0:
         print(f"{i} out of {size}")
+
+    print(i)
 
     states[i, :] = ekf.state
     resids[i, :] = ekf.y_resid
@@ -66,6 +68,7 @@ for i in range(size):
 plt.figure()
 plt.plot(t, x_actual[:,0], label="X")
 plt.plot(t, states[:,0], label="X mean")
+plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
 plt.legend()
@@ -73,6 +76,7 @@ plt.legend()
 plt.figure()
 plt.plot(t, x_actual[:,1], label="Y")
 plt.plot(t, states[:,1], label="Y meas")
+plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
 plt.legend()
@@ -80,9 +84,21 @@ plt.legend()
 plt.figure()
 plt.plot(t, x_actual[:,2], label="Z")
 plt.plot(t, states[:,2], label="Z meas")
+plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
 plt.legend()
+
+axis_vec = np.array([
+    quat_apply(q_B2L, [0,0,1]) for q_B2L in states[:,6:10].tolist()
+])
+plt.figure()
+plt.plot(t, axis_vec, label="axis")
+
+plt.xlabel("Time (s)")
+plt.legend()
+
+
 plt.show()
 
 stds = np.std(resids, axis=0)
