@@ -22,7 +22,7 @@ class EKF:
 
         # Measurements
         self.H: np.ndarray = None # Observation model (maps state to measurements)
-        self.R: np.ndarray = np.eye(3) * 0.1**2  # Measurement noise covariance (uncertainty in measurements)
+        self.R: np.ndarray = np.eye(3) * 0.01**2  # Measurement noise covariance (uncertainty in measurements)
 
         # Propogation
         self.P = P_cov_0.copy()
@@ -71,7 +71,7 @@ class EKF:
         #     [0.5*dt*w[2], 0.5*dt*w[1], -0.5*dt*w[0], 1]
         # ])
 
-        self.F_dot[6:10, 6:10] = 0.5 * np.array([
+        self.F_dot[6:10, 6:10] += 0.5 * np.array([
             [0, -w[0], -w[1], -w[2]],
             [w[0], 0, w[2], -w[1]],
             [w[1], -w[2], 0, w[0]],
@@ -100,9 +100,14 @@ class EKF:
         # print(term2)
 
         self.F_dot[3:6, 6:10] = 2 * Q_F @ term2
+        # print(self.F_dot)
+        e_val, e_vec = np.linalg.eig(self.F_dot)
+        # print(e_val)
         # breakpoint()
         # Angular velocity propogated by measurement
 
+        self.F_dot = self.F_dot * dt
+        
         return self.F_dot
     
 
@@ -132,7 +137,7 @@ class EKF:
         self.state[3:6] = v + (self.a_global * self.dt)
 
         # q
-        q_new = q + 0.5 * quat_mult(q, [0, *self.w_body]) * self.dt
+        q_new = q + 0.5 * quat_mult(q, [0, *self.w_global]) * self.dt
         self.state[6:10] = unit(q_new)
 
         # print(self.state)
@@ -144,7 +149,11 @@ class EKF:
 
         # Propogating P
         self.calc_F_jacobian(self.a_global, self.w_body)
+        # print(self.P[:3,:3])
+        # try:
         self.P = self.F_dot @ self.P @ self.F_dot.T + self.Q
+        # except RuntimeWarning:
+        #     breakpoint()
 
     def update(self, p_glob: np.ndarray):
 
@@ -161,8 +170,9 @@ class EKF:
         # Kalman gain
         self.K = self.P @ self.H.T @ np.linalg.inv(self.S)
 
+        # print(self.K)
+
         # Update State
-        # breakpoint()
         self.state = self.state + self.K @ self.y_innovation
         self.state[6:10] = unit(self.state[6:10])
 

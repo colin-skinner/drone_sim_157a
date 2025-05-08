@@ -3,10 +3,13 @@ from dronesim import *
 from parameters import *
 import os, csv
 import pandas as pd
+import warnings
 np.set_printoptions(edgeitems=30, linewidth=100000, 
     formatter=dict(float=lambda x: "%.3g" % x))
+warnings.simplefilter('error')
+
     
-filename = "results/x_test_kalman.csv"
+filename = "results/long_data_kalman.csv"
 
 data = pd.read_csv(f'{os.getcwd()}/{filename}')
 
@@ -18,7 +21,7 @@ dt = t[1] - t[0]
 
 a_body = a_body + np.random.normal(0, 0.02, a_body.shape) 
 w_body = w_body + np.random.normal(0, 0.002, w_body.shape) 
-
+x_actual = x_actual + np.random.normal(0, 0.002, w_body.shape) 
 
 # Cov
 P0 = np.zeros((10, 10))
@@ -49,25 +52,26 @@ for i in range(size):
     # print(ekf.state)
 
     ekf.predict(accel, gyro)
-    # print(ekf.state)
 
-    # if i % 100 == 1:
-    #     ekf.update(lidar)
+    if i > 0 and i % 100 == 0:
+        ekf.update(lidar)
+        # breakpoint()
     #     print("AH")
     # print(ekf.state)
 
     if i % 100 == 0:
         print(f"{i} out of {size}")
 
-    print(i)
+    # print(i)
 
     states[i, :] = ekf.state
     resids[i, :] = ekf.y_resid
 
 
+print(len(states))
 plt.figure()
 plt.plot(t, x_actual[:,0], label="X")
-plt.plot(t, states[:,0], label="X mean")
+plt.plot(t, states[:,0], label="X meas")
 plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
