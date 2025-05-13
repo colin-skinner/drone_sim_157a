@@ -1,12 +1,15 @@
+import matplotlib.pyplot as plt
 import numpy as np
-from dronesim import *
-from parameters import *
-import os, csv
+import os
 import pandas as pd
-import warnings
+
+# import warnings
+from dronesim import EKF, quat_apply
+import parameters as p 
+
 np.set_printoptions(edgeitems=30, linewidth=100000, 
     formatter=dict(float=lambda x: "%.3g" % x))
-warnings.simplefilter('error')
+# warnings.simplefilter('error')
 
     
 filename = "results/long_data_kalman.csv"
@@ -32,9 +35,9 @@ P0[6:10, 6:10] = np.eye(4) * 1e-5                   # q
 
 # EKF testing
 
-ekf = EKF(state0[0:10], P0, dt)
+ekf = EKF(p.state0[0:10], P0, dt)
 
-ekf.add_biases(accel_bias, gyro_bias, lidar_bias)
+ekf.add_biases(p.accel_bias, p.gyro_bias, p.lidar_bias)
 
 size = len(data)
 
@@ -48,21 +51,15 @@ for i in range(size):
     gyro = w_body[i]
     lidar = x_actual[i]
 
-    # breakpoint()
-    # print(ekf.state)
-
     ekf.predict(accel, gyro)
 
-    if i > 0 and i % 100 == 0:
-        ekf.update(lidar)
-        # breakpoint()
-    #     print("AH")
-    # print(ekf.state)
-
     if i % 100 == 0:
-        print(f"{i} out of {size}")
+        print(f"\n{i} out of {size}", end="")
 
-    # print(i)
+    if i > 0 and i % int(.1 / dt) == 0:
+        ekf.update(lidar)
+        print("\t\tUpdating")
+
 
     states[i, :] = ekf.state
     resids[i, :] = ekf.y_resid

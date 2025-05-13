@@ -2,19 +2,15 @@ import numpy as np
 from .quaternion_helpers import *
 from .algorithms import EKF
 from typing import Callable
-from pprint import pprint
-from copy import copy
-    
+import random
 
 class Drone:
 
-    def __init__(self, dt: float, state0: np.ndarray = None):
+    def __init__(self, dt: float, state0: np.ndarray):
 
         if dt <= 0:
             raise ValueError("dt must be greater than 0")
 
-        if state0 is not None and type(state0) is not np.ndarray:
-            raise ValueError("If state0 is input, must be an ndarray")
         self.state = state0.copy()
         self.fsm_state = "idle"
         self.full_navigation = False
@@ -57,8 +53,7 @@ class Drone:
     ):
         self.get_navigation_data = a_w_p_data_func
         self.full_navigation = full_navigation
-        
-    
+           
     def make_ekf(self,
         P0: np.ndarray,
         accel_bias: np.ndarray,
@@ -123,7 +118,7 @@ class Drone:
         self.A = allocation_matrix
         self.A_inv = np.linalg.inv(allocation_matrix)
 
-    def define_drone(self, mass: float, I: np.ndarray[float], dimensions: list[float]):
+    def define_drone(self, mass: float, I: np.ndarray[float], dimensions: list[float]):  # noqa: E741
 
         if mass <= 0:
             raise ValueError("Mass must be greater than 0 kg")
@@ -134,9 +129,15 @@ class Drone:
         if len(dimensions) != (3):
             raise ValueError("dimensions must be a 3-element list with X,Y,Z lengths")
 
+        if type(dimensions) is list:
+            self.dimensions = np.array([dimensions])
+        else:
+            self.dimensions = dimensions
+
+        assert np.shape(dimensions) == (3,)
+
         self.mass = mass
         self.F_g = 9.81 * self.mass
-        self.dimensions = np.array(dimensions)
         self.I = I.copy()
         self.I_inv = np.linalg.inv(I)
 
@@ -196,12 +197,9 @@ class Drone:
         assert np.shape(p_desired_L) == (3,)
         assert np.shape(v_desired_L) == (3,)
 
-        max_angle = 80 * DEG2RAD
-
 
         p = self.p_calc
         v = self.v_calc
-        q = self.q_calc
 
         kp = self.position_controller_1_Kp
         kd = self.position_controller_1_Kd
@@ -335,25 +333,26 @@ class Drone:
             self.p_glob_array.append(self.p_meas)
 
             #TODO: actual noising
-            self.a_meas = self.a_meas + np.random.normal(0, 0.02, self.a_meas.shape) 
-            self.w_meas = self.w_meas + np.random.normal(0, 0.002, self.w_meas.shape) 
+            self.a_meas = self.a_meas
+            self.w_meas = self.w_meas
 
             self.ekf.predict(self.a_meas, self.w_meas)
             # print(ekf.state)
 
-            # self.ekf.update(self.p_meas)
+            if random.random() < 0.1:
+                self.ekf.update(self.p_meas)
 
             # Calculated state is actual state
-            self.p_calc = sim_state[0:3]
-            self.v_calc = sim_state[3:6]
-            self.q_calc = sim_state[6:10]
-            self.w_calc = sim_state[10:13]
+            # self.p_calc = sim_state[0:3]
+            # self.v_calc = sim_state[3:6]
+            # self.q_calc = sim_state[6:10]
+            # self.w_calc = sim_state[10:13]
 
             # # KALMAN
-            # self.p_calc = self.ekf.state[0:3]
-            # self.v_calc = self.ekf.state[3:6]
-            # self.q_calc = self.ekf.state[6:10]
-            # self.w_calc = self.w_meas
+            self.p_calc = self.ekf.state[0:3]
+            self.v_calc = self.ekf.state[3:6]
+            self.q_calc = self.ekf.state[6:10]
+            self.w_calc = self.w_meas
             
                         
         else:
@@ -364,6 +363,10 @@ class Drone:
             self.v_calc = sim_state[3:6]
             self.q_calc = sim_state[6:10]
             self.w_calc = sim_state[10:13]
+
+            self.a_meas = np.zeros(3)
+            self.w_meas = np.zeros(3)
+            self.p_meas = np.zeros(3)
 
 
 
@@ -401,16 +404,6 @@ class Drone:
         vertical_angle = angle_between(vertical_axis, [0, 0, 1])
 
         q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
-
-        # Angular velocity check
-        # if norm(self.w_calc) > 10:
-
-        #     q_d = np.array([1,0,0,0])
-
-        # print(q_d)
-        # q_d = np.array([1,0,0,0])
-        # thrust = self.vertical_sample_controller(vertical_angle)
-
         torques = self.attitude_controller_1(q_d, w_d)
 
 
@@ -426,10 +419,6 @@ class Drone:
         #     self.dead = True
 
         thrust = thrust
-
-        # print(torques)
-
-        # breakpoint()
 
 
         self.motor_forces += self.apply_motor_bounds(

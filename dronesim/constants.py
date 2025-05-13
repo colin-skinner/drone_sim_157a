@@ -61,6 +61,7 @@ N2LBF = 1 / LBF2N
 G_METER = 6.6743e-11  # m3/kg s2
 G_KM = G_METER * M2KM**3
 
+# Fun thing left over from the orbital sim
 # SUN = {
 #     'name': 'Sun',
 #     'mass': 1.989e30,

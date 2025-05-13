@@ -1,12 +1,6 @@
 from __future__ import annotations  # For forward references in type hints (Python 3.7+)
 import numpy as np
-from .quaternion_helpers import *
 from typing import Callable
-
-
-def newtons(f: function, f_dot: function, x: float):
-    return x - f(x) / f_dot(x)
-
 
 def euler_func(
     t: float,
@@ -18,8 +12,6 @@ def euler_func(
     x_n = dt * x_dot(t, x_prev) + x_prev
 
     return x_n
-
-
 
 def rk4_func(
     t: float, dt: float, x_prev: float, x_dot: Callable[[float, np.ndarray], np.ndarray]

@@ -1,10 +1,8 @@
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 from mpl_toolkits.mplot3d.axes3d import Axes3D
-from time import time, sleep
-
+import numpy as np
 from .Logger import Logger
-from .constants import *
+from .constants import M2CM, M2FT
 from .quaternion_helpers import quat_apply, norm, unit
 
 # plt.style.use('dark_background')
@@ -94,7 +92,7 @@ def plot_state_vector(
 
     p = logger.actual_states[:max_step, 0:3]
     v = logger.actual_states[:max_step, 3:6]
-    q = logger.actual_states[:max_step, 6:10]
+    # q = logger.actual_states[:max_step, 6:10]
     w = logger.actual_states[:max_step, 10:13]
 
     if length_unit in ["meter", "m"]:
@@ -224,8 +222,8 @@ def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm
 
     p = logger.actual_states[:max_step, 0:3]
     v = logger.actual_states[:max_step, 3:6]
-    q = logger.actual_states[:max_step, 6:10]
-    w = logger.actual_states[:max_step, 10:13]
+    # q = logger.actual_states[:max_step, 6:10]
+    # w = logger.actual_states[:max_step, 10:13]
 
     if length_unit in ["meter", "m"]:
         x_arr = p
@@ -289,7 +287,7 @@ def debug_3d(logger: Logger,
         q = logger.actual_states[:step, 6:10]
         curr_q = q[-1]
 
-        torque = logger.actual_torques[step]
+        # torque = logger.actual_torques[step]
         q_d = logger.drone_desired_quat[step]
         p_d_err = logger.drone_p_d_error[step]
 

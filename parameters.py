@@ -1,5 +1,6 @@
+"""Parameters"""
 import numpy as np
-from dronesim import quat_from_axis_rot, ThrustData
+from dronesim import ThrustData, CM2M
 
 
 ########################################
@@ -19,10 +20,10 @@ state0 = np.array(p0_m + v0_m + q0 + w0_rad_s)
 ########################################
 
 mass = 1  # kg
-I = np.array([[0.00030,         0,              0],
+I = np.array([[0.00030,         0,              0],  # noqa: E741
               [0,               0.00030,        0],
               [0,               0,              0.00045]])
-dimensions = np.array([13, 13, 8])  # input into list as cm
+dimensions = np.array([13, 13, 8]) * CM2M # input into list as cm
 
 
 
@@ -33,8 +34,8 @@ dimensions = np.array([13, 13, 8])  # input into list as cm
 thrust_data = ThrustData("Calibration Data/Motor_Kv1860_Orange_Propeller_Data.xlsx", drop_duplicates=True)
 # print(thrust_data.lookup_table)
 
-min_prop_force_kgf = min(thrust_data.lookup_table["Thrust (kgf)"])
-max_prop_force_kgf = max(thrust_data.lookup_table["Thrust (kgf)"])
+min_prop_force_kgf = float(min(thrust_data.lookup_table["Thrust (kgf)"]))
+max_prop_force_kgf = float(max(thrust_data.lookup_table["Thrust (kgf)"]))
 
 # min_prop_force_kgf = 0.095
 # max_prop_force_kgf = 0.46

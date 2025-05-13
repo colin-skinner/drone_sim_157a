@@ -1,12 +1,10 @@
 import numpy as np
 from numpy.linalg import norm
 
-from .constants import *
-
 # ----- ANGLE                        -----#
 
 
-def angle_between(v1: np.ndarray, v2: np.ndarray):
+def angle_between(v1: np.ndarray | list, v2: np.ndarray | list):
     """Returns the angle in radians between vectors 'v1' and 'v2'::
 
     >>> angle_between((1, 0, 0), (0, 1, 0))
@@ -17,12 +15,15 @@ def angle_between(v1: np.ndarray, v2: np.ndarray):
     3.141592653589793
     """
 
-    v1 = np.array(v1)
-    v2 = np.array(v2)
+    if type(v1) is list:
+        v1 = np.array([v1]).T
+    if type(v2) is list:
+        v2 = np.array([v2]).T
+
 
     if len(v1) == 3 and len(v2) == 3:
 
-        num = np.dot(v1, v2)
+        num = np.dot(v1.T, v2)
         den = norm(v1) * norm(v2)
 
         result = np.arccos(num / den)
@@ -34,7 +35,7 @@ def angle_between(v1: np.ndarray, v2: np.ndarray):
         angle, _ = axis_rot_from_quat(q_e)
         return angle
 
-    raise RuntimeError(f"Check lengths of input vectors")
+    raise RuntimeError("Check lengths of input vectors")
 
 
 # ----- Quaternion and Axis rotation -----#
@@ -102,8 +103,10 @@ def R_from_quat(q):
 def quat_from_R(R):
 
     # Makes sure the transpose can be taken
-    if type(R) != np.ndarray:
+    if type(R) is not np.ndarray:
         R = np.array(R)
+
+    assert np.shape(R) == (3,3)
 
     # Insomniac games formula
     row0, row1, row2 = R.T # Transpose because rows are columns in Insomniac convention

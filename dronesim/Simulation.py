@@ -1,9 +1,9 @@
 from .Drone import Drone
-import numpy as np
-from dataclasses import dataclass
-from .quaternion_helpers import *
-from .integrators import rk4_func, euler_func
+from .constants import GRAVITY_M_S2
+from .quaternion_helpers import quat_apply, quat_inv, quat_mult, unit
+from .integrators import rk4_func
     
+import numpy as np
 
 class Simulation:
     """Define environment and adds forces to a drone"""
@@ -139,7 +139,7 @@ class Simulation:
     #        Forces and Torques            #
     ########################################
 
-    def add_force(self, force: np.ndarray, r: np.ndarray):
+    def add_force(self, force: np.ndarray, r: np.ndarray | None = None):
         """Adds force in the global frame of the drone"""
 
         if np.shape(force) != (3,):
@@ -199,6 +199,10 @@ class Simulation:
         self.a_body = quat_apply(q_L2B, a_body)
         self.w_body = quat_apply(q_L2B, w_body)
 
+        self.a_body = self.simulate_accel_noise(self.a_body)
+        self.w_body = self.simulate_gyro_noise(self.w_body)
+        self.lidar_g = self.simulate_lidar_noise(self.lidar_g)
+
         # Add noise
 
         return self.a_body, self.w_body, self.lidar_g
@@ -213,6 +217,7 @@ class Simulation:
         q_B2L = state[6:10]
         w = state[10:13]
 
+
         dpdt = v
         dvdt = self.total_force / self.drone.mass
         dqdt = 0.5 * quat_mult(q_B2L, [0, *w])
@@ -224,6 +229,7 @@ class Simulation:
         """TODO: add motor spinup/down delays"""
         arm_distance = self.drone.arm_distance
         prop_height = self.drone.prop_height
+
 
         front_left_r = arm_distance * np.array(unit([1, 1, prop_height]))
         front_right_r = arm_distance * np.array(unit([1, -1, prop_height]))
@@ -258,10 +264,12 @@ class Simulation:
         self.drone.timestep()
         assert self.drone.t == self.t
 
+        # breakpoint()
+
         # Gravity is the only external force?
         if gravity_en:
             gravity = np.array([0, 0, -9.81]) * self.drone.mass
-            self.add_force(gravity, np.zeros(3))
+            self.add_force(gravity)
 
         # Calculate how actuator inputs affect the forces/torques
         self.sim_props(

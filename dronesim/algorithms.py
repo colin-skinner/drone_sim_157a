@@ -1,9 +1,9 @@
 import numpy as np
-from .quaternion_helpers import *
+from .quaternion_helpers import quat_apply, quat_mult, unit
 
 class EKF:
     def __init__(self, state0: np.ndarray, P_cov_0: np.ndarray, dt: float):
-        assert np.shape(state0) == (10,)
+        assert np.shape(state0) == (10,1)
         assert np.shape(P_cov_0) == (10,10)
 
         self.dt = dt

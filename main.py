@@ -1,19 +1,15 @@
-from dronesim import *
-# (
-#     Simulation,
-#     Drone,
-#     Logger,
-#     quat_apply,
-#     quat_inv,
-#     quat_from_axis_rot,
-#     angle_between,
-#     plot_state_vector,
-#     plot_drone_axis,
-#     plot_1, plot_2, plot_3,
-#     RAD2DEG, DEG2RAD
-# )
+from dronesim import (
+    Simulation,
+    Drone,
+    Logger,
+    quat_apply,
+    unit,
+    plot_state_vector,
+    plot_drone_axis,
+    plot_1, plot_3, plot_3d, debug_3d
+)
 
-from parameters import *
+import parameters as p
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -40,6 +36,15 @@ Future
 - Noise in actuator outputs
 """
 
+"""
+TODO:
+- Fix allocation matrix and motor definitions
+- Better attitude controller
+- Better position controller
+- Spline trajectory
+
+"""
+
 
 if __name__ == "__main__":
 
@@ -49,49 +54,49 @@ if __name__ == "__main__":
     #               Objects                #
     ########################################
 
-    drone = Drone(dt, state0)
-    sim = Simulation(t_max, dt, state0)
+    drone = Drone(p.dt, p.state0)
+    sim = Simulation(p.t_max, p.dt, p.state0)
 
     # Physical Properties
-    drone.define_prop(70 / 1000, 15 / 1000, max_prop_force_kgf, min_prop_force_kgf, 0)
-    drone.define_drone(mass, I, dimensions / 100)
+    drone.define_prop(70 / 1000, 15 / 1000, p.max_prop_force_kgf, p.min_prop_force_kgf, 0)
+    drone.define_drone(p.mass, p.I, p.dimensions)
 
     # Simulation Properties
-    sim.add_imu_misalignment(imu_misalignment)
-    sim.add_accel_noise(accel_bias, accel_std)
-    sim.add_gyro_noise(gyro_bias, gyro_std)
-    sim.add_lidar_noise(lidar_bias, lidar_std)
+    # sim.add_imu_misalignment(p.imu_misalignment)
+    sim.add_accel_noise(p.accel_bias, p.accel_std)
+    sim.add_gyro_noise(p.gyro_bias, p.gyro_std)
+    sim.add_lidar_noise(p.lidar_bias, p.lidar_std)
 
     sim.add_drone(drone)
     drone.add_sim_functions(sim.get_state, sim.get_time)
-    drone.make_ekf(P0, accel_bias, gyro_bias, lidar_bias)
-    drone.add_navigation_data_functions(sim.generate_navigation_data, drone_full_navigation)
+    drone.make_ekf(p.P0, p.accel_bias, p.gyro_bias, p.lidar_bias)
+    drone.add_navigation_data_functions(sim.generate_navigation_data, p.drone_full_navigation)
 
     ########################################
     #                Path                  #
     ########################################
 
-    drone.add_path(p_d_arr)
+    drone.add_path(p.p_d_arr)
 
     ########################################
     #               Gains                  #
     ########################################
 
     drone.set_attitude_controller_1(
-        np.diag(attitude_controller_1_kp),
-        np.diag(attitude_controller_1_kd),
+        np.diag(p.attitude_controller_1_kp),
+        np.diag(p.attitude_controller_1_kd),
     )
 
     drone.set_position_controller_1(
-        np.diag(position_controller_1_kp),
-        np.diag(position_controller_1_kd),
+        np.diag(p.position_controller_1_kp),
+        np.diag(p.position_controller_1_kd),
     )
 
     ########################################
     #               Logger                 #
     ########################################
 
-    logger = Logger(t_max, dt)
+    logger = Logger(p.t_max, p.dt)
     logger.add_drone(drone)
     logger.add_sim(sim)
 
@@ -100,7 +105,7 @@ if __name__ == "__main__":
     ########################################
 
     step = 0
-    while sim.t < t_max:
+    while sim.t < p.t_max:
         sim.sim_drone_timestep()
         logger.log(step)
         step += 1
@@ -113,9 +118,9 @@ if __name__ == "__main__":
     # Set ending step
     logger.step = step
 
-    if filename not in ["", None]:
-        logger.save(filename)
-        logger.save_kalman(filename)
+    if p.filename not in ["", None]:
+        logger.save(p.filename)
+        logger.save_kalman(p.filename)
 
 
     ########################################
@@ -157,24 +162,11 @@ if __name__ == "__main__":
     plot_3d(logger)
 
 
-    if DEBUG:
+    if p.DEBUG:
 
         plt.show(block=False)
         breakpoint()
-        debug_3d(logger, figsize=(10,10), start_time_s=debug_start_time, interval=speed_interval)
+        debug_3d(logger, figsize=(10,10), start_time_s=p.debug_start_time, interval=p.speed_interval)
         breakpoint()
     else: 
         plt.show()
-
-
-    # print(list(logger.actual_states[:5, 10:13]))
-    # print()
-    # # print(list(logger.actual_states[:5, 10:13]))
-    # print([
-    #     quat_apply(q_B2L.T, w.T)
-    #     for q_B2L,w 
-    #     in zip(logger.actual_states[1:6, 6:10], logger.actual_w_body[1:6])
-    # ])
-    # print()
-
-    # print("WHAT")
