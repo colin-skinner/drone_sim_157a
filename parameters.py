@@ -1,13 +1,15 @@
 """Parameters"""
 import numpy as np
-from dronesim import ThrustData, CM2M
+from dronesim import ThrustData, TrajectoryData, CM2M
 
 
 ########################################
 #           Initial State              #
 ########################################
 
-p0_m = [0.0, 0.0, 2.0]
+# p0_m = [0.0, 0.0, 2.0]
+p0_m = [1.5, -1.5, 5.5]
+p0_m = [0, -1.5, 5.5]
 # p0_m = [0,5,8]
 v0_m = [0.0, 0.0, 0.0]
 q0 = [1.0, 0.0, 0.0, 0.0]  # Identity quaternion
@@ -19,10 +21,10 @@ state0 = np.array(p0_m + v0_m + q0 + w0_rad_s)
 #             Mass Stuff               #
 ########################################
 
-mass = 1  # kg
-I = np.array([[0.00030,         0,              0],  # noqa: E741
-              [0,               0.00030,        0],
-              [0,               0,              0.00045]])
+mass = 0.8  # kg
+I = np.array([[0.003,         0,              0],  # noqa: E741
+              [0,               0.005,        0],
+              [0,               0,              0.002]])
 dimensions = np.array([13, 13, 8]) * CM2M # input into list as cm
 
 
@@ -31,7 +33,7 @@ dimensions = np.array([13, 13, 8]) * CM2M # input into list as cm
 #            Prop Stuff                #
 ########################################
 
-thrust_data = ThrustData("Calibration Data/Motor_Kv1860_Orange_Propeller_Data.xlsx", drop_duplicates=True)
+thrust_data = ThrustData("Inputs/Motor_Kv1860_Orange_Propeller_Data.xlsx")
 # print(thrust_data.lookup_table)
 
 min_prop_force_kgf = float(min(thrust_data.lookup_table["Thrust (kgf)"]))
@@ -55,9 +57,15 @@ P0[3:6, 3:6] = np.eye(3) * 0.05**2                  # v in m/s
 P0[6:10, 6:10] = np.eye(4) * 1e-5                   # q
 
 
+########################################
+#            Sample Path               #
+########################################
+
+trajectory = TrajectoryData("Inputs/Trajectory Data.xlsx", "Trajectory_2")
+p_d_arr = trajectory.data
 
 ########################################
-#               Path                   #
+#            Sample Path               #
 ########################################
 
 # p_d_arr = { # testing Z
@@ -69,14 +77,16 @@ P0[6:10, 6:10] = np.eye(4) * 1e-5                   # q
 #     10:[0,0,2],
 # }
 
-p_d_arr = { # testing Z
-    0: ([0,0,2],[0,0,0]),
-    2: ([0,0,4],[0,0,0]),
-    4: ([0,0,6],[0,0,0]),
-    6: ([0,0,8],[0,0,0]),
-    8: ([0,0,10],[0,0,0]),
-    10: ([0,0,5],[0,0,0])
-}
+# p_d_arr = { # testing Z
+#     0: ([0,0,2],[0,0,0]),
+#     2: ([0,0,4],[0,0,0]),
+#     4: ([0,0,6],[0,0,0]),
+#     6: ([0,0,8],[0,0,0]),
+#     8: ([0,0,10],[0,0,0]),
+#     10: ([0,0,5],[0,0,0])
+# }
+
+
 
 # p_d_arr = { # wacky
 #     0: ([0,0,2],[0,0,0]),
@@ -124,56 +134,56 @@ p_d_arr = { # testing Z
 #     25: ([2,3,5], [0, 0, 0])
 # }
 
-p_d_arr = { # cool alternating one
-    0: ([0,5,8], [0, 0, 0]),
-    3: ([2,3,6], [0, 0, 0]),
-    6: ([8,5,8], [0, 0, 0]),
-    9: ([6,3,6], [0, 0, 0]),
-    12: ([0,5,8], [0, 0, 0]),
-    15: ([2,3,6], [0, 0, 0]),
-    18: ([8,5,8], [0, 0, 0]),
-    21: ([6,3,6], [0, 0, 0]),
-    24: ([0,5,8], [0, 0, 0]),
-    27: ([2,3,6], [0, 0, 0]),
-    30: ([8,5,8], [0, 0, 0]),
-    33: ([6,3,6], [0, 0, 0]),
-    36: ([0,5,8], [0, 0, 0]),
-    39: ([2,3,6], [0, 0, 0]),
-    42: ([8,5,8], [0, 0, 0]),
-    45: ([6,3,6], [0, 0, 0]),
-    48: ([0,5,8], [0, 0, 0]),
-    51: ([6,3,6], [0, 0, 0]),
-    54: ([0,5,8], [0, 0, 0]),
-    57: ([2,3,6], [0, 0, 0]),
-    60: ([8,5,8], [0, 0, 0]),
-    63: ([6,3,6], [0, 0, 0]),
-    66: ([0,5,8], [0, 0, 0]),
-    69: ([6,3,6], [0, 0, 0]),
-    72: ([0,5,8], [0, 0, 0]),
-    75: ([2,3,6], [0, 0, 0]),
-    78: ([8,5,8], [0, 0, 0]),
-    81: ([6,3,6], [0, 0, 0]),
-    84: ([0,5,8], [0, 0, 0]),
-    87: ([6,3,6], [0, 0, 0]),
-    90: ([0,5,8], [0, 0, 0]),
-    93: ([2,3,6], [0, 0, 0]),
-    96: ([8,5,8], [0, 0, 0]),
-    99: ([6,3,6], [0, 0, 0]),
-    102: ([0,5,8], [0, 0, 0]),
+# p_d_arr = { # cool alternating one
+#     0: ([0,5,8], [0, 0, 0]),
+#     3: ([2,3,6], [0, 0, 0]),
+#     6: ([8,5,8], [0, 0, 0]),
+#     9: ([6,3,6], [0, 0, 0]),
+#     12: ([0,5,8], [0, 0, 0]),
+#     15: ([2,3,6], [0, 0, 0]),
+#     18: ([8,5,8], [0, 0, 0]),
+#     21: ([6,3,6], [0, 0, 0]),
+#     24: ([0,5,8], [0, 0, 0]),
+#     27: ([2,3,6], [0, 0, 0]),
+#     30: ([8,5,8], [0, 0, 0]),
+#     33: ([6,3,6], [0, 0, 0]),
+#     36: ([0,5,8], [0, 0, 0]),
+#     39: ([2,3,6], [0, 0, 0]),
+#     42: ([8,5,8], [0, 0, 0]),
+#     45: ([6,3,6], [0, 0, 0]),
+#     48: ([0,5,8], [0, 0, 0]),
+#     51: ([6,3,6], [0, 0, 0]),
+#     54: ([0,5,8], [0, 0, 0]),
+#     57: ([2,3,6], [0, 0, 0]),
+#     60: ([8,5,8], [0, 0, 0]),
+#     63: ([6,3,6], [0, 0, 0]),
+#     # 66: ([0,5,8], [0, 0, 0]),
+#     # 69: ([6,3,6], [0, 0, 0]),
+#     # 72: ([0,5,8], [0, 0, 0]),
+#     # 75: ([2,3,6], [0, 0, 0]),
+#     # 78: ([8,5,8], [0, 0, 0]),
+#     # 81: ([6,3,6], [0, 0, 0]),
+#     # 84: ([0,5,8], [0, 0, 0]),
+#     # 87: ([6,3,6], [0, 0, 0]),
+#     # 90: ([0,5,8], [0, 0, 0]),
+#     # 93: ([2,3,6], [0, 0, 0]),
+#     # 96: ([8,5,8], [0, 0, 0]),
+#     # 99: ([6,3,6], [0, 0, 0]),
+#     # 102: ([0,5,8], [0, 0, 0]),
 
-}
-
-# p_d_arr = {
-#     0: (p0_m, [0, 0, 0]),
-#     0: ([5,3,8], [0, 0, 0]),
 # }
+
+p_d_arr = {
+    0: (p0_m, [0, 0, 0]),
+#     0: ([5,3,8], [0, 0, 0]),
+}
 
 
 ########################################
 #             Simulation               #
 ########################################
 
-t_max = 102
+t_max = 10
 dt = 0.001
 
 imu_misalignment = [1,0,0,0]
@@ -187,9 +197,9 @@ gyro_std = [0.002] * 3
 lidar_bias = [0] * 3
 lidar_std = [0.03] * 3
 
-drone_full_navigation = True
+drone_full_navigation = False
 
-filename = "long_data"
+filename = "long_data_absolute_state"
 
 DEBUG = True
 # DEBUG = False
@@ -206,12 +216,15 @@ speed_interval = 25  # Frames to travel at once for 0.001 FAST
 #         Controller Gains             #
 ########################################
 
-attitude_controller_1_kp = 3 * [0.6] # GOOD and somewhat related to last row of allocation matrix for kd*2*r
-attitude_controller_1_kd = 3 * [0.008] # GOOD
+# attitude_controller_1_kp = 3 * [0.6] # GOOD and somewhat related to last row of allocation matrix for kd*2*r
+# attitude_controller_1_kd = 3 * [0.008] # GOOD
 
 
-attitude_controller_1_kp = 3 * [1.0] # GOOD and somewhat related to last row of allocation matrix for kd*r
-attitude_controller_1_kd = 3 * [0.025] # GOOD
+# attitude_controller_1_kp = 3 * [1.0] # GOOD and somewhat related to last row of allocation matrix for kd*r
+# attitude_controller_1_kd = 3 * [0.025] # GOOD
+
+attitude_controller_1_kp = 2 * [50] + [30] # Shin code
+attitude_controller_1_kd = 2 * [2.5] + [2] 
 
 
 # attitude_controller_1_kp = [0.3, 0.3, 0.6]
@@ -226,13 +239,16 @@ attitude_controller_1_kd = 3 * [0.025] # GOOD
 
 # a = 3
 # b = 0.4
-a = 10.5
-b = 5.5
+# a,b = [125,75] # Good for Shin trajectory
+
 position_controller_1_kp = [12.5, 12.5, 12.5] # good Z
 position_controller_1_kd = [6.5, 6.5, 6.5] # good Z
 
-# position_controller_1_kp = 3 * [a]
-# position_controller_1_kd = 3 * [b]
+
+a,b = [150,50] # Good for Shin trajectory
+a,b = [50,20] # Good for Shin trajectory
+position_controller_1_kp = 3 * [a] #+ [200]
+position_controller_1_kd = 3 * [b] #+ [75]
 
 
 

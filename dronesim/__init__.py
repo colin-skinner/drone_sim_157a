@@ -6,4 +6,6 @@ from .constants import *
 from .plotting import *
 from .algorithms import EKF
 
-from .ThrustData import ThrustData
+from .importing import ThrustData, TrajectoryData
+
+__all__ = ["Simulation", "Drone", "Logger", "EKF", "ThrustData", "TrajectoryData"]

@@ -84,6 +84,7 @@ def plot_state_vector(
     length_unit="m",
     *,
     title: str = None,
+    desired_data: dict[float, tuple[float, float]] = None
 ):
 
     max_step = logger.step
@@ -116,7 +117,9 @@ def plot_state_vector(
     vy = v[:, 1]
     vz = v[:, 2]
 
-
+    if desired_data:
+        t_d = desired_data.keys()
+        state_d = list(desired_data.values())
 
     ########################################
     #             Plotting                 #
@@ -130,6 +133,8 @@ def plot_state_vector(
     figure.suptitle(title, fontsize=20)
 
     fig: Axes3D = axs[0, 0]
+    if desired_data:
+        fig.plot(t_d, [p[0] for p,_ in state_d])
     fig.plot(t, x)
     fig.set_title("X Position vs. Time")
     fig.grid("True")
@@ -137,6 +142,8 @@ def plot_state_vector(
     fig.set_xlabel(f"time ({time_unit})")
 
     fig: Axes3D = axs[0, 1]
+    if desired_data:
+        fig.plot(t_d, [p[1] for p,_ in state_d])
     fig.plot(t, y)
     fig.set_title("Y Position vs. Time")
     fig.grid("True")
@@ -144,6 +151,8 @@ def plot_state_vector(
     fig.set_xlabel(f"time ({time_unit})")
 
     fig: Axes3D = axs[0, 2]
+    if desired_data:
+        fig.plot(t_d, [p[2] for p,_ in state_d])
     fig.plot(t, z)
     fig.set_title("Z Position vs. Time")
     fig.grid("True")
@@ -151,6 +160,8 @@ def plot_state_vector(
     fig.set_xlabel(f"time ({time_unit})")
 
     fig: Axes3D = axs[1, 0]
+    if desired_data:
+        fig.plot(t_d, [v[0] for _,v in state_d])
     fig.plot(t, vx)
     fig.set_title("X Velocity vs. Time")
     fig.grid("True")
@@ -158,6 +169,8 @@ def plot_state_vector(
     fig.set_xlabel(f"time ({time_unit})")
 
     fig: Axes3D = axs[1, 1]
+    if desired_data:
+        fig.plot(t_d, [v[1] for _,v in state_d])
     fig.plot(t, vy)
     fig.set_title("Y Velocity vs. Time")
     fig.grid("True")
@@ -165,6 +178,8 @@ def plot_state_vector(
     fig.set_xlabel(f"time ({time_unit})")
 
     fig: Axes3D = axs[1, 2]
+    if desired_data:
+        fig.plot(t_d, [v[2] for _,v in state_d])
     fig.plot(t, vz)
     fig.set_title("Z Velocity vs. Time")
     fig.grid("True")

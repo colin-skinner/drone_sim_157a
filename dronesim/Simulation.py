@@ -269,7 +269,7 @@ class Simulation:
         # Gravity is the only external force?
         if gravity_en:
             gravity = np.array([0, 0, -9.81]) * self.drone.mass
-            self.add_force(gravity)
+            self.add_force(gravity, np.array([0,0,1]))
 
         # Calculate how actuator inputs affect the forces/torques
         self.sim_props(

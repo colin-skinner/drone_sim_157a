@@ -1,10 +1,10 @@
 from openpyxl import load_workbook
 import pandas as pd
-import os, sys
+import os
 
 class ThrustData:
 
-    def __init__(self, relative_path: str, *, drop_duplicates = False):
+    def __init__(self, relative_path: str, *, drop_duplicates = True):
 
         base_path = os.getcwd()
 
@@ -56,6 +56,36 @@ class ThrustData:
         if drop_duplicates:
             self.lookup_table = self.lookup_table.drop_duplicates(subset=['ESC signal (µs)'])
 
+
+class TrajectoryData: 
+
+    def __init__(self, relative_path: str, sheet_name: str, extra_cols: list[str] | None = None):
+        base_path = os.getcwd()
+
+        workbook = load_workbook(f"{base_path}/{relative_path}")
+        sheet = workbook[sheet_name].values
+
+        columns = next(sheet)
+        sheet_data = pd.DataFrame(sheet, columns=columns)
+
+        if extra_cols is None:
+            extra_cols = []
         
+        self.state_df = sheet_data[['t', 'r_x', 'r_y', 'r_z', 'v_x', 'v_y', 'v_z'] + extra_cols]
+
+        self.data: dict[list, tuple[list, list]] = {}
+        for i, row in self.state_df.iterrows():
+            row = [float(i) for i in row]
+            row[3] = row[3] + 5
+            self.data |= {row[0]: (row[1:4], row[4:7])}
+
+        
+        
+    
+
+        
+
+
+
 
 

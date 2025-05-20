@@ -12,7 +12,7 @@ np.set_printoptions(edgeitems=30, linewidth=100000,
 # warnings.simplefilter('error')
 
     
-filename = "results/long_data_kalman.csv"
+filename = "results/long_data_absolute_state_kalman.csv"
 
 data = pd.read_csv(f'{os.getcwd()}/{filename}')
 
@@ -26,6 +26,13 @@ a_body = a_body + np.random.normal(0, 0.02, a_body.shape)
 w_body = w_body + np.random.normal(0, 0.002, w_body.shape) 
 x_actual = x_actual + np.random.normal(0, 0.002, w_body.shape) 
 
+plt.figure()
+plt.plot(a_body)
+plt.figure()
+plt.plot(w_body)
+plt.figure()
+plt.plot(x_actual)
+plt.show()
 # Cov
 P0 = np.zeros((10, 10))
 P0[0:3, 0:3] = np.eye(3) * 0.05**2                  # p in m
@@ -57,12 +64,13 @@ for i in range(size):
         print(f"\n{i} out of {size}", end="")
 
     if i > 0 and i % int(.1 / dt) == 0:
+    # if i > 0 and i % 10 == 0:
         ekf.update(lidar)
-        print("\t\tUpdating")
+        # print("\t\tUpdating")
 
 
     states[i, :] = ekf.state
-    resids[i, :] = ekf.y_resid
+    resids[i, :] = lidar - ekf.state[0:3] #ekf.y_resid
 
 
 print(len(states))

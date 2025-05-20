@@ -127,7 +127,8 @@ if __name__ == "__main__":
     #             Analysis                 #
     ########################################
 
-    plot_state_vector(logger)
+    # plot_state_vector(logger)
+    plot_state_vector(logger, desired_data = p.p_d_arr)
     plot_3(logger.t[:step], logger.ekf_state[:step, 0:3], "EKF Position")
     plot_3(logger.t[:step], logger.ekf_state[:step, 3:6], "EKF Velocity")
 

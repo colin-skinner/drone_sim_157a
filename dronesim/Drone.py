@@ -1,8 +1,8 @@
 import numpy as np
-from .quaternion_helpers import *
+from numpy.linalg import norm
+from .quaternion_helpers import angle_between, quat_apply, quat_inv, quat_mult, quat_from_R, unit
 from .algorithms import EKF
 from typing import Callable
-import random
 
 class Drone:
 
@@ -323,24 +323,19 @@ class Drone:
 
         self.t += self.dt
         sim_state = self.get_sim_state()
+        self.a_meas, self.w_meas, self.p_meas = self.get_navigation_data()
+        self.a_body_array.append(self.a_meas)
+        self.w_body_array.append(self.w_meas)
+        self.p_glob_array.append(self.p_meas)
+
 
         if self.full_navigation:
-            self.a_meas, self.w_meas, self.p_meas = self.get_navigation_data()
-
-            # For debugging
-            self.a_body_array.append(self.a_meas)
-            self.w_body_array.append(self.w_meas)
-            self.p_glob_array.append(self.p_meas)
-
-            #TODO: actual noising
-            self.a_meas = self.a_meas
-            self.w_meas = self.w_meas
 
             self.ekf.predict(self.a_meas, self.w_meas)
             # print(ekf.state)
 
-            if random.random() < 0.1:
-                self.ekf.update(self.p_meas)
+            # if random.random() < 0.1:
+            self.ekf.update(self.p_meas)
 
             # Calculated state is actual state
             # self.p_calc = sim_state[0:3]
@@ -363,11 +358,6 @@ class Drone:
             self.v_calc = sim_state[3:6]
             self.q_calc = sim_state[6:10]
             self.w_calc = sim_state[10:13]
-
-            self.a_meas = np.zeros(3)
-            self.w_meas = np.zeros(3)
-            self.p_meas = np.zeros(3)
-
 
 
         # FIltering
