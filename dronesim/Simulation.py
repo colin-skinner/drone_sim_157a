@@ -257,7 +257,7 @@ class Simulation:
         # self.actual_state = self.next_state
         self.t = self.t + self.dt
 
-        if np.isclose(self.t % 10, 0, atol=self.dt):
+        if np.isclose(self.t % 1, 0, atol=self.dt):
             print(f"Simulating t={int(self.t)}s")
 
         # Calculates drone motor forces based off of its state

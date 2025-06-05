@@ -482,61 +482,24 @@ class Drone:
         self.state = np.concat([self.p_calc, self.v_calc, self.q_calc, self.w_calc])
 
         ######### Guidance #########
-
         ######### Control #########
 
         self.motor_forces = np.zeros(4)
-
-        # q_d = np.array([1., 0., 0., 0.])
-        # q_d = quat_from_axis_rot(10, [0, 1, 0])
-
-        
-        # w_d = np.array([0, 0, 100]) * DEG2RAD
-
-        
         
         p_d, v_d, a_d, w_d, n_d, theta_d = self.get_position_desired()
 
         self.p_d_err = p_d - self.p_calc
 
-        # v_d = np.zeros(3)
-
         vertical_axis = quat_apply(self.q_calc, [0, 0, 1])
         vertical_angle = angle_between(vertical_axis, [0, 0, 1])
 
-        # print(vertical_angle)
-
         q_d, thrust = self.position_controller_2(p_d, v_d, a_d, w_d, n_d, theta_d)
-        # q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
-        # breakpoint()
-        # q_d = np.array([1., 0., 0., 0.])
-        # w_d = np.zeros(3)
-        # thrust = self.F_g / np.cos(vertical_angle)
         torques = self.attitude_controller_2(q_d, w_d)
 
-
-        # stepping = False
-        # if (abs(torques[2]) > 0.0000001
-        #     or stepping):
-        #     # stepping = True
-        #     breakpoint()
-
-        # thrust = np.clip(thrust, a_min=self.min_thrust_N, a_max=self.max_thrust_N)
-
-        # if vertical_angle * 180 / np.pi >= 89:
-        #     self.dead = True
-
-        thrust = thrust
-
-
-        # breakpoint()
         self.motor_forces += self.apply_motor_bounds(
             self.allocate_thrusts(thrust, torques)
         )
-
-        # self.motor_forces += self.allocate_thrusts(thrust, torques)
-
-
+        
         self.torques = torques
         self.thrust = thrust
         self.vertical_angle = vertical_angle

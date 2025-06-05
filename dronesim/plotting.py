@@ -342,7 +342,7 @@ def debug_3d(logger: Logger,
         plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0.5,0,0])), 'purple')
         plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0.5,0])), 'orange')
         plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,0.5])), 'black')
-        plot_vec_3d(ax, curr_p, curr_p + unit(torque), 'red')
+        # plot_vec_3d(ax, curr_p, curr_p + unit(torque), 'red')
 
 
         plot_vec_3d(ax, curr_p, curr_p + p_d_err, 'brown')

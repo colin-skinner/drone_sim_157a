@@ -85,12 +85,13 @@ if __name__ == "__main__":
     #               Gains                  #
     ########################################
 
-    drone.set_attitude_controller_1(
+    drone.set_attitude_controller(
         np.diag(p.attitude_controller_1_kp),
         np.diag(p.attitude_controller_1_kd),
+        np.diag(p.attitude_controller_1_Lambda),
     )
 
-    drone.set_position_controller_1(
+    drone.set_position_controller(
         np.diag(p.position_controller_1_kp),
         np.diag(p.position_controller_1_kd),
     )

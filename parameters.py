@@ -45,8 +45,8 @@ max_prop_force_kgf = float(max(thrust_data.lookup_table["Thrust (kgf)"]))
 # min_prop_force_kgf = 0.095
 # max_prop_force_kgf = 0.46
 
-# print(f"{min_prop_force_kgf=}")
-# print(f"{max_prop_force_kgf=}")
+print(f"{min_prop_force_kgf=}")
+print(f"{max_prop_force_kgf=}")
 
 # ADDD LOOKUP TABLE PROP
 
@@ -160,19 +160,19 @@ p_d_arr = trajectory.data
 #     57: ([2,3,6], [0, 0, 0]),
 #     60: ([8,5,8], [0, 0, 0]),
 #     63: ([6,3,6], [0, 0, 0]),
-#     # 66: ([0,5,8], [0, 0, 0]),
-#     # 69: ([6,3,6], [0, 0, 0]),
-#     # 72: ([0,5,8], [0, 0, 0]),
-#     # 75: ([2,3,6], [0, 0, 0]),
-#     # 78: ([8,5,8], [0, 0, 0]),
-#     # 81: ([6,3,6], [0, 0, 0]),
-#     # 84: ([0,5,8], [0, 0, 0]),
-#     # 87: ([6,3,6], [0, 0, 0]),
-#     # 90: ([0,5,8], [0, 0, 0]),
-#     # 93: ([2,3,6], [0, 0, 0]),
-#     # 96: ([8,5,8], [0, 0, 0]),
-#     # 99: ([6,3,6], [0, 0, 0]),
-#     # 102: ([0,5,8], [0, 0, 0]),
+    # 66: ([0,5,8], [0, 0, 0]),
+    # 69: ([6,3,6], [0, 0, 0]),
+    # 72: ([0,5,8], [0, 0, 0]),
+    # 75: ([2,3,6], [0, 0, 0]),
+    # 78: ([8,5,8], [0, 0, 0]),
+    # 81: ([6,3,6], [0, 0, 0]),
+    # 84: ([0,5,8], [0, 0, 0]),
+    # 87: ([6,3,6], [0, 0, 0]),
+    # 90: ([0,5,8], [0, 0, 0]),
+    # 93: ([2,3,6], [0, 0, 0]),
+    # 96: ([8,5,8], [0, 0, 0]),
+    # 99: ([6,3,6], [0, 0, 0]),
+    # 102: ([0,5,8], [0, 0, 0]),
 
 # }
 
@@ -203,7 +203,7 @@ lidar_std = [0.03] * 3
 drone_full_navigation = False
 drone_use_simple_path = False
 
-filename = "long_data_absolute_state"
+filename = "final_cdr"
 
 DEBUG = True
 # DEBUG = False
@@ -222,26 +222,15 @@ speed_interval = 25  # Frames to travel at once for 0.001 FAST
 
 # Attitude
 
-# attitude_controller_1_kp = 3 * [3.0] # GOOD and somewhat related to last row of allocation matrix for kd*r
-# attitude_controller_1_kd = 3 * [0.085] # GOOD
-
-# attitude_controller_1_kp = 2 * [100] + [150] # Shin code
 attitude_controller_1_kd = 2 * [10] + [10] 
-# attitude_controller_1_kd = [0,0,0]
-
-# attitude_controller_1_kp = 2 * [200] + [200] # Shin code
-# attitude_controller_1_Lambda = 3 * [5]
-
-attitude_controller_1_kp = 2 * [200] + [200] # Shin code
+attitude_controller_1_kp = 2 * [200] + [200]
 attitude_controller_1_Lambda = 3 * [5]
 
 # Position
 
-position_controller_1_kp = 2 * [9.5] + [17] #+ [200]
-position_controller_1_kd = 2 * [2.4] + [2.7] #+ [75]
+position_controller_1_kp = 2 * [9.5] + [17]
+position_controller_1_kd = 2 * [2.4] + [2.7]
 
-# position_controller_1_kp = 3 * [100] #+ [200]
-# position_controller_1_kd = 3 * [1] #+ [75]
 
 
 

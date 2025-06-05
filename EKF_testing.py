@@ -74,26 +74,30 @@ for i in range(size):
 
 
 print(len(states))
+
 plt.figure()
+plt.title("X Axis Estimation")
 plt.plot(t, x_actual[:,0], label="X")
 plt.plot(t, states[:,0], label="X meas")
-plt.ylim([-10,10])
+# plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
 plt.legend()
 
 plt.figure()
+plt.title("Y Axis Estimation")
 plt.plot(t, x_actual[:,1], label="Y")
 plt.plot(t, states[:,1], label="Y meas")
-plt.ylim([-10,10])
+# plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
 plt.legend()
 
 plt.figure()
+plt.title("Z Axis Estimation")
 plt.plot(t, x_actual[:,2], label="Z")
 plt.plot(t, states[:,2], label="Z meas")
-plt.ylim([-10,10])
+# plt.ylim([-10,10])
 plt.ylabel("Position (m)")
 plt.xlabel("Time (s)")
 plt.legend()
@@ -122,6 +126,7 @@ plt.show()
 
 plt.figure()
 plt.hist(resids, bins=50, label=["x", "y", "z"])
-plt.title("Histogram of z residuals")
+plt.title("Histogram of residuals")
+plt.xlabel("Residual (m)")
 plt.show()
     
