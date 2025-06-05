@@ -7,7 +7,7 @@ from dronesim import ThrustData, TrajectoryData, CM2M, quat_from_axis_rot
 #           Initial State              #
 ########################################
 
-trajectory = TrajectoryData("Inputs/Trajectory Data Draft.xlsx", "New, 45 CCW y")
+trajectory = TrajectoryData("Inputs/Trajectory Data Draft.xlsx", "New1, 45 CCW y")
 p0_m = trajectory.data[0][0]
 
 # p0_m = [0.0, 0.0, 2.0]
@@ -25,9 +25,9 @@ state0 = np.array(p0_m + v0_m + q0 + w0_rad_s)
 ########################################
 
 mass = 0.8  # kg
-I = np.array([[0.08,         0,              0],  # noqa: E741
-              [0,               0.08,        0],
-              [0,               0,              0.1]])
+I = np.array([[0.01,         0,              0],  # noqa: E741
+              [0,               0.01,        0],
+              [0,               0,              0.02]])
 dimensions = np.array([13, 13, 8]) * CM2M # input into list as cm
 
 
@@ -220,51 +220,25 @@ speed_interval = 25  # Frames to travel at once for 0.001 FAST
 #         Controller Gains             #
 ########################################
 
-# attitude_controller_1_kp = 3 * [0.6] # GOOD and somewhat related to last row of allocation matrix for kd*2*r
-# attitude_controller_1_kd = 3 * [0.008] # GOOD
+# Attitude
 
+# attitude_controller_1_kp = 3 * [3.0] # GOOD and somewhat related to last row of allocation matrix for kd*r
+# attitude_controller_1_kd = 3 * [0.085] # GOOD
 
-attitude_controller_1_kp = 3 * [3.0] # GOOD and somewhat related to last row of allocation matrix for kd*r
-attitude_controller_1_kd = 3 * [0.085] # GOOD
-
-attitude_controller_1_kp = 2 * [100] + [150] # Shin code
+# attitude_controller_1_kp = 2 * [100] + [150] # Shin code
 attitude_controller_1_kd = 2 * [10] + [10] 
 # attitude_controller_1_kd = [0,0,0]
 
+# attitude_controller_1_kp = 2 * [200] + [200] # Shin code
+# attitude_controller_1_Lambda = 3 * [5]
+
 attitude_controller_1_kp = 2 * [200] + [200] # Shin code
-# attitude_controller_1_kd = 3 * [.2]
+attitude_controller_1_Lambda = 3 * [5]
 
-# attitude_controller_1_kp = 3 * [200] # Shin code
-# attitude_controller_1_kd = 3 * [2]
-# attitude_controller_1_kp = 3 * [300.0]  # bad
-# attitude_controller_1_kd = 3 * [35.22]  # bad
+# Position
 
-# a = 3
-# b = 0.4
-# a,b = [125,75] # Good for Shin trajectory
-
-# position_controller_1_kp = [12.5, 12.5, 12.5] # good Z
-# position_controller_1_kd = [6.5, 6.5, 6.5] # good Z
-
-
-a,b = [150,50] # badish for Shin trajectory
-# a,b = [5,2] # Good for Shin trajectory
-# a,b = [50,10] # Good for Shin trajectory
-position_controller_1_kp = 3 * [a] #+ [200]
-position_controller_1_kd = 3 * [b] #+ [75]
-
-
-position_controller_1_kp = 3 * [10] #+ [200]
-position_controller_1_kd = 3 * [1] #+ [75]
-
-position_controller_1_kp = 3 * [5] #+ [200]
-position_controller_1_kd = 3 * [.5] #+ [75]
-
-# position_controller_1_kp = 2 * [8.5] + [20] #+ [200]
-# position_controller_1_kd = 3 * [2] #+ [75]
-
-# position_controller_1_kp = 3 * [9.5] #+ [200]
-# position_controller_1_kd = 3 * [2.4] #+ [75]
+position_controller_1_kp = 2 * [9.5] + [17] #+ [200]
+position_controller_1_kd = 2 * [2.4] + [2.7] #+ [75]
 
 # position_controller_1_kp = 3 * [100] #+ [200]
 # position_controller_1_kd = 3 * [1] #+ [75]

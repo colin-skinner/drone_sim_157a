@@ -28,6 +28,7 @@ class Drone:
         # Erorrs
         self.prev_angle_error = 0  # rad
         self.prev_p_error = 0
+        self.q_err_prev = None
 
         # Functions
         self.get_sim_state = None
@@ -150,19 +151,21 @@ class Drone:
     #                                         GNC Initialization                                               #
     ############################################################################################################
 
-    def set_attitude_controller_1(self, Kp: np.ndarray, Kd: np.ndarray):
+    def set_attitude_controller(self, Kp: np.ndarray, Kd: np.ndarray, Lambda: np.ndarray = np.zeros((3,3))):
+        assert np.shape(Kp) == (3, 3)
+        assert np.shape(Kd) == (3, 3)
+        assert np.shape(Lambda) == (3, 3)
+
+        self.attitude_controller_Kp = Kp.copy()
+        self.attitude_controller_Kd = Kd.copy()
+        self.attitude_controller_2_Lambda = Lambda.copy()
+
+    def set_position_controller(self, Kp: np.ndarray, Kd: np.ndarray):
         assert np.shape(Kp) == (3, 3)
         assert np.shape(Kd) == (3, 3)
 
-        self.attitude_controller_1_Kp = Kp.copy()
-        self.attitude_controller_1_Kd = Kd.copy()
-
-    def set_position_controller_1(self, Kp: np.ndarray, Kd: np.ndarray):
-        assert np.shape(Kp) == (3, 3)
-        assert np.shape(Kd) == (3, 3)
-
-        self.position_controller_1_Kp = Kp.copy()
-        self.position_controller_1_Kd = Kd.copy()
+        self.position_controller_Kp = Kp.copy()
+        self.position_controller_Kd = Kd.copy()
 
     ############################################################################################################
     #                                                  Loop                                                    #
@@ -185,8 +188,8 @@ class Drone:
         p = self.p_calc
         v = self.v_calc
 
-        kp = self.position_controller_1_Kp
-        kd = self.position_controller_1_Kd
+        kp = self.position_controller_Kp
+        kd = self.position_controller_Kd
 
 
         p_err = p_desired_L - p
@@ -230,8 +233,8 @@ class Drone:
         v = self.v_calc
         # w = self.w_calc
 
-        kp = self.position_controller_1_Kp
-        kd = self.position_controller_1_Kd
+        kp = self.position_controller_Kp
+        kd = self.position_controller_Kd
 
         w_desired_L = quat_apply(self.q_calc, w_desired_L)
         n_desired_L = quat_apply(self.q_calc, n_desired_L)
@@ -247,9 +250,9 @@ class Drone:
 
 
 
-        a_tot = a_desired_L - kp @ p_err - kd @ v_err + np.array([0,0,self.F_g]) / self.mass
+        a_tot = a_desired_L - kp @ p_err - kd @ v_err + np.array([0,0,9.81])
         
-        up = np.array([0,0,1])
+        e3 = np.array([0,0,1])
         a_hat = unit(a_tot)
         thrust = self.mass * norm(a_tot)
 
@@ -260,12 +263,24 @@ class Drone:
             q_d = np.array([1,0,0,0])
         else:
 
-            term1 = 1 / np.sqrt(2 * (1 + up.T @ a_hat))
-            term2 = np.array([1 + up.T @ a_hat, *list(np.cross(up.T, a_hat))])
+            term1 = 1 / np.sqrt(2 * (1 + np.dot(e3, a_hat) ))
+            term2 = np.array([1 + e3.T @ a_hat, *list(np.cross(e3, a_hat))])
 
             q_d = term1 * term2
 
             q_d = unit(q_d)
+
+
+        dot = np.dot(e3, a_hat)
+        axis = np.cross(e3, a_hat)
+        if np.linalg.norm(axis) < 1e-6:
+            q_d = np.array([1.0, 0.0, 0.0, 0.0])
+        else:
+            axis = axis / np.linalg.norm(axis)
+            angle = np.arccos(dot)
+            q_d = np.hstack((np.cos(angle/2), axis*np.sin(angle/2)))
+        # omega_d = np.zeros(3)
+        # return T_d, q_d, omega_d
 
         self.F_desired = 0
 
@@ -282,13 +297,13 @@ class Drone:
         assert np.shape(q_desired_L) == (4,)
         assert np.shape(w_desired_L) == (3,)
 
-        kp = self.attitude_controller_1_Kp
-        kd = self.attitude_controller_1_Kd
+        kp = self.attitude_controller_Kp
+        kd = self.attitude_controller_Kd
 
         q_error_L = quat_mult(quat_inv(q_desired_L), self.q_calc)
         w_error_L = self.w_calc - w_desired_L
 
-        torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4]) - np.matmul(kd, w_error_L.transpose())
+        torque_L = -q_error_L[0] * kp @ q_error_L[1:4] - kd @ w_error_L.T
 
 
         # Clip torques based on max, but I'm not sure this is even being used
@@ -296,6 +311,33 @@ class Drone:
         # torque_L[2] = 2 * self.max_torque_Z_Nm * np.arctan(torque_L[2] * np.pi / 2 / self.max_torque_Z_Nm) / np.pi
 
         return torque_L
+
+
+    def attitude_controller_2(
+        self, q_desired_L: np.ndarray, w_desired_L: np.ndarray
+    ) -> np.ndarray:
+        assert np.shape(q_desired_L) == (4,)
+        assert np.shape(w_desired_L) == (3,)
+
+        kp = self.attitude_controller_Kp
+        kd = self.attitude_controller_Kd
+        Lambda = self.attitude_controller_2_Lambda
+
+
+        q_error_L = quat_mult(quat_inv(q_desired_L), self.q_calc)
+        w_error_L = self.w_calc - w_desired_L
+        q_err_dot = np.zeros((3,)) if self.q_err_prev is None else (q_error_L[1:4] - self.q_err_prev[1:4]) / self.dt
+        # breakpoint()
+        self.q_err_prev = q_error_L
+        torque_L = -np.sign(q_error_L[0]) * kp @ q_error_L[1:4] - kd @ w_error_L - q_err_dot @ Lambda * np.sign(q_error_L[0])
+
+
+        # Clip torques based on max, but I'm not sure this is even being used
+        # torque_L[0:2] = 2 * self.max_torque_X_Y_Nm * np.arctan(torque_L[0:2] * np.pi / 2 / self.max_torque_X_Y_Nm) / np.pi
+        # torque_L[2] = 2 * self.max_torque_Z_Nm * np.arctan(torque_L[2] * np.pi / 2 / self.max_torque_Z_Nm) / np.pi
+
+        return torque_L
+
 
     def allocate_thrusts(self, thrust_z_B: float, torques_B: np.ndarray) -> np.ndarray:
         # Reference:
@@ -311,7 +353,6 @@ class Drone:
         result = np.clip(
             commands, a_min=self.force_bounds_N[0], a_max=self.force_bounds_N[1]
         )
-        print(result)
         return result
 
     ############################################################################################################
@@ -456,7 +497,7 @@ class Drone:
         
         p_d, v_d, a_d, w_d, n_d, theta_d = self.get_position_desired()
 
-
+        self.p_d_err = p_d - self.p_calc
 
         # v_d = np.zeros(3)
 
@@ -471,7 +512,7 @@ class Drone:
         # q_d = np.array([1., 0., 0., 0.])
         # w_d = np.zeros(3)
         # thrust = self.F_g / np.cos(vertical_angle)
-        torques = self.attitude_controller_1(q_d, w_d)
+        torques = self.attitude_controller_2(q_d, w_d)
 
 
         # stepping = False
