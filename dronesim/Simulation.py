@@ -237,9 +237,9 @@ class Simulation:
         back_right_r = arm_distance * np.array(unit([-1, -1, prop_height]))
 
         front_left_F = np.array([0, 0, motor_forces[0]])
-        front_right_F = np.array([0, 0, motor_forces[1]])
-        back_left_F = np.array([0, 0, motor_forces[2]])
-        back_right_F = np.array([0, 0, motor_forces[3]])
+        back_left_F = np.array([0, 0, motor_forces[1]])
+        back_right_F = np.array([0, 0, motor_forces[2]])
+        front_right_F = np.array([0, 0, motor_forces[3]])
 
         self.add_force_body(front_left_F, front_left_r)
         self.add_force_body(front_right_F, front_right_r)
@@ -249,8 +249,8 @@ class Simulation:
         # Z_axis torques TODO: figure out if this is right
         self.add_torque_body(np.array([0, 0, self.drone.kd * motor_forces[0]]))
         self.add_torque_body(np.array([0, 0, -self.drone.kd * motor_forces[1]]))
-        self.add_torque_body(np.array([0, 0, -self.drone.kd * motor_forces[2]]))
-        self.add_torque_body(np.array([0, 0, self.drone.kd * motor_forces[3]]))
+        self.add_torque_body(np.array([0, 0, self.drone.kd * motor_forces[2]]))
+        self.add_torque_body(np.array([0, 0, -self.drone.kd * motor_forces[3]]))
 
     def sim_drone_timestep(self, gravity_en=True):
         """ Figure out order of when drone and sim have their state vectors bc now it is off by 1"""

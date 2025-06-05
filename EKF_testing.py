@@ -12,7 +12,7 @@ np.set_printoptions(edgeitems=30, linewidth=100000,
 # warnings.simplefilter('error')
 
     
-filename = "results/long_data_absolute_state_kalman.csv"
+filename = "results/long_data_kalman.csv"
 
 data = pd.read_csv(f'{os.getcwd()}/{filename}')
 

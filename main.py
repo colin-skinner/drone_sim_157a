@@ -58,7 +58,7 @@ if __name__ == "__main__":
     sim = Simulation(p.t_max, p.dt, p.state0)
 
     # Physical Properties
-    drone.define_prop(70 / 1000, 15 / 1000, p.max_prop_force_kgf, p.min_prop_force_kgf, 0)
+    drone.define_prop(70 / 1000, 15 / 1000, p.max_prop_force_kgf, p.min_prop_force_kgf, kd=.2)
     drone.define_drone(p.mass, p.I, p.dimensions)
 
     # Simulation Properties
@@ -76,7 +76,10 @@ if __name__ == "__main__":
     #                Path                  #
     ########################################
 
-    drone.add_path(p.p_d_arr)
+    if p.drone_use_simple_path:
+        drone.add_path(p.p_d_arr)
+    else:
+        drone.add_dataframe_path(p.trajectory.state_df)
 
     ########################################
     #               Gains                  #
@@ -160,14 +163,14 @@ if __name__ == "__main__":
     # plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,1])), 'black')
 
 
-    plot_3d(logger)
+    plot_3d(logger, desired_data = p.p_d_arr)
 
 
     if p.DEBUG:
 
         plt.show(block=False)
         breakpoint()
-        debug_3d(logger, figsize=(10,10), start_time_s=p.debug_start_time, interval=p.speed_interval)
+        debug_3d(logger, desired_data=p.p_d_arr, figsize=(10,10), start_time_s=p.debug_start_time, interval=p.speed_interval)
         breakpoint()
     else: 
         plt.show()

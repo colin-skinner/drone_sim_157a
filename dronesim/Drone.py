@@ -1,8 +1,9 @@
 import numpy as np
 from numpy.linalg import norm
-from .quaternion_helpers import angle_between, quat_apply, quat_inv, quat_mult, quat_from_R, unit
+from .quaternion_helpers import angle_between, quat_apply, quat_inv, quat_mult, quat_from_R, unit, cross_matrix
 from .algorithms import EKF
 from typing import Callable
+import pandas as pd
 
 class Drone:
 
@@ -64,7 +65,11 @@ class Drone:
         self.ekf.add_biases(accel_bias, gyro_bias, lidar_bias)
 
     def add_path(self, path_arr: dict[float, list[float]]):
-        self.path_arr = path_arr.copy()
+        self.path = path_arr.copy()
+
+    def add_dataframe_path(self, path_arr: pd.DataFrame):
+        self.path = path_arr.copy()
+
 
 
     ############################################################################################################
@@ -78,7 +83,7 @@ class Drone:
         max_force_kgf: float,
         min_force_kgf: float,
         num: int = 4,
-        kd: float = 0.02,
+        kd: float = 0.01,
     ):
 
         if arm_distance < 0:
@@ -109,9 +114,9 @@ class Drone:
         allocation_matrix = np.array(
             [
                 [1, 1, 1, 1],
-                [r, -r, r, -r],
-                [-r, -r, r, r],
-                [kd * r, -kd * r, -kd * r, kd * r],
+                [r, r, -r, -r],
+                [-r, r, r, -r],
+                [kd, -kd, kd, -kd],
             ]
         )
 
@@ -163,27 +168,6 @@ class Drone:
     #                                                  Loop                                                    #
     ############################################################################################################
 
-
-
-    ##########################################################################
-    #                               Navigation                               #
-    ##########################################################################
-    """
-        Obtaining current state.
-        
-        - Gets state OR noise data
-        - Runs Kalman filter
-    """
-    ##########################################################################
-    #                                Guidance                                #
-    ##########################################################################
-    """
-        Where the path planning happens.
-
-        - Generate errors based on flight path
-
-    """
-
     ##########################################################################
     #                                Controls                                #
     ##########################################################################
@@ -212,7 +196,7 @@ class Drone:
         self.F_desired = np.matmul(kp,p_err.T) + np.matmul(kd,v_err.T) + np.array([0,0,self.F_g]).T
 
         # Clip to maximum force
-        if norm(self.F_desired) > self.max_thrust_N * 1.1:
+        if norm(self.F_desired) > self.max_thrust_N:
             self.F_desired = self.F_desired * abs(self.max_thrust_N / norm(self.F_desired))
 
         # Thrust scaling -> https://www.desmos.com/calculator/gsl7czi1f2
@@ -235,6 +219,63 @@ class Drone:
 
         return q_des, thrust
 
+    def position_controller_2(self, p_desired_L: np.ndarray,
+                              v_desired_L: np.ndarray, a_desired_L: np.ndarray,
+                              w_desired_L: np.ndarray, n_desired_L: np.ndarray,
+                              theta_d: float):
+        assert np.shape(p_desired_L) == (3,)
+        assert np.shape(v_desired_L) == (3,)
+
+        p = self.p_calc
+        v = self.v_calc
+        # w = self.w_calc
+
+        kp = self.position_controller_1_Kp
+        kd = self.position_controller_1_Kd
+
+        w_desired_L = quat_apply(self.q_calc, w_desired_L)
+        n_desired_L = quat_apply(self.q_calc, n_desired_L)
+
+        # R_d = np.eye(3) + np.sin(theta_d) * cross_matrix(n_desired_L) + (1 - np.cos(theta_d)) * (cross_matrix(n_desired_L) @ cross_matrix(n_desired_L))
+        # q_B2L = quat_from_R(R_d)
+        # n_B = quat_apply(quat_inv(q_B2L), [0,0,1])
+        # print(self.t, end="")
+        # print(n_B)
+
+        p_err = p - p_desired_L
+        v_err = v - v_desired_L
+
+
+
+        a_tot = a_desired_L - kp @ p_err - kd @ v_err + np.array([0,0,self.F_g]) / self.mass
+        
+        up = np.array([0,0,1])
+        a_hat = unit(a_tot)
+        thrust = self.mass * norm(a_tot)
+
+        # print(up.T @ a_hat)
+        # print(np.cross(up.T,a_hat))
+
+        if norm(a_tot) < 0.0001:
+            q_d = np.array([1,0,0,0])
+        else:
+
+            term1 = 1 / np.sqrt(2 * (1 + up.T @ a_hat))
+            term2 = np.array([1 + up.T @ a_hat, *list(np.cross(up.T, a_hat))])
+
+            q_d = term1 * term2
+
+            q_d = unit(q_d)
+
+        self.F_desired = 0
+
+        # print(f"{p_desired_L} {p_err} {v_err} {a_tot}")
+
+
+
+        return q_d, thrust
+
+
     def attitude_controller_1(
         self, q_desired_L: np.ndarray, w_desired_L: np.ndarray
     ) -> np.ndarray:
@@ -247,11 +288,12 @@ class Drone:
         q_error_L = quat_mult(quat_inv(q_desired_L), self.q_calc)
         w_error_L = self.w_calc - w_desired_L
 
-        torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4].transpose()) - np.matmul(kd, w_error_L.transpose())
+        torque_L = -q_error_L[0] * np.matmul(kp, q_error_L[1:4]) - np.matmul(kd, w_error_L.transpose())
+
 
         # Clip torques based on max, but I'm not sure this is even being used
-        torque_L[0:2] = 2 * self.max_torque_X_Y_Nm * np.arctan(torque_L[0:2] * np.pi / 2 / self.max_torque_X_Y_Nm) / np.pi
-        torque_L[2] = 2 * self.max_torque_Z_Nm * np.arctan(torque_L[2] * np.pi / 2 / self.max_torque_Z_Nm) / np.pi
+        # torque_L[0:2] = 2 * self.max_torque_X_Y_Nm * np.arctan(torque_L[0:2] * np.pi / 2 / self.max_torque_X_Y_Nm) / np.pi
+        # torque_L[2] = 2 * self.max_torque_Z_Nm * np.arctan(torque_L[2] * np.pi / 2 / self.max_torque_Z_Nm) / np.pi
 
         return torque_L
 
@@ -269,6 +311,7 @@ class Drone:
         result = np.clip(
             commands, a_min=self.force_bounds_N[0], a_max=self.force_bounds_N[1]
         )
+        print(result)
         return result
 
     ############################################################################################################
@@ -300,19 +343,51 @@ class Drone:
 
             case _:
                 pass
-
+    
     def get_position_desired(self):
 
-        timestamps = self.path_arr.keys()
+        if type(self.path) is dict:
 
-        key = max(i for i in timestamps if i < self.t)
+            timestamps = self.path.keys()
 
-        row = self.path_arr[key]
-        p_d = row[0]
-        v_d = row[1]
+            key = max(i for i in timestamps if i < self.t)
 
-        return np.array(p_d), np.array(v_d)
+            row = self.path[key]
+            p_d = row[0]
+            v_d = row[1]
 
+            return np.array(p_d), np.array(v_d), np.array(np.zeros(3)), np.array(np.zeros(3)), np.array(np.zeros(3)), 0
+        
+        elif type(self.path) is pd.DataFrame:
+
+            timestamps = self.path["t"]
+            p_arr = self.path[["r_x", "r_y", "r_z"]]
+            v_arr = self.path[["v_x", "v_y", "v_z"]]
+            a_arr = self.path[["a_x", "a_y", "a_z"]]
+            n_arr = self.path[["n_x", "n_y", "n_z"]]
+            w_arr = self.path[["omega_x", "omega_y", "omega_z"]]
+            theta_arr = self.path["theta"]
+            
+            # breakpoint()
+            # row = max(timestamps.index[i] for i in range(len(timestamps)) if timestamps[i] < self.t)
+            row = sum([1 for i in timestamps if i < self.t]) - 1
+            
+            # print(row)
+            # breakpoint()
+
+            p_d = p_arr.iloc[row]
+            v_d = v_arr.iloc[row]
+            a_d = a_arr.iloc[row]
+            n_d = n_arr.iloc[row]
+            w_d = w_arr.iloc[row]
+            theta_d = theta_arr.iloc[row]
+            # breakpoint()
+
+            return np.array(p_d), np.array(v_d), np.array(a_d), np.array(w_d), np.array(n_d), float(theta_d)
+    
+        
+        else:
+            raise ValueError(f"Type of self.path is {type(self.path)}")
 
     def timestep(self):
 
@@ -371,21 +446,16 @@ class Drone:
 
         self.motor_forces = np.zeros(4)
 
-        # q_d = np.array([0., 0., 0., 0.98901019])
+        # q_d = np.array([1., 0., 0., 0.])
         # q_d = quat_from_axis_rot(10, [0, 1, 0])
 
-        w_d = np.zeros(3)
+        
         # w_d = np.array([0, 0, 100]) * DEG2RAD
 
         
         
-        p_d, v_d = self.get_position_desired()
+        p_d, v_d, a_d, w_d, n_d, theta_d = self.get_position_desired()
 
-        
-            
-
-
-        self.p_d_err = p_d - self.p_calc
 
 
         # v_d = np.zeros(3)
@@ -393,7 +463,14 @@ class Drone:
         vertical_axis = quat_apply(self.q_calc, [0, 0, 1])
         vertical_angle = angle_between(vertical_axis, [0, 0, 1])
 
-        q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
+        # print(vertical_angle)
+
+        q_d, thrust = self.position_controller_2(p_d, v_d, a_d, w_d, n_d, theta_d)
+        # q_d, thrust = self.position_controller_1(p_d, v_d, vertical_angle)
+        # breakpoint()
+        # q_d = np.array([1., 0., 0., 0.])
+        # w_d = np.zeros(3)
+        # thrust = self.F_g / np.cos(vertical_angle)
         torques = self.attitude_controller_1(q_d, w_d)
 
 
@@ -403,7 +480,7 @@ class Drone:
         #     # stepping = True
         #     breakpoint()
 
-        thrust = np.clip(thrust, a_min=self.min_thrust_N, a_max=self.max_thrust_N)
+        # thrust = np.clip(thrust, a_min=self.min_thrust_N, a_max=self.max_thrust_N)
 
         # if vertical_angle * 180 / np.pi >= 89:
         #     self.dead = True
@@ -411,9 +488,12 @@ class Drone:
         thrust = thrust
 
 
+        # breakpoint()
         self.motor_forces += self.apply_motor_bounds(
             self.allocate_thrusts(thrust, torques)
         )
+
+        # self.motor_forces += self.allocate_thrusts(thrust, torques)
 
 
         self.torques = torques

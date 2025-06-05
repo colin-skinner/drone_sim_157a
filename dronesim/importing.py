@@ -54,7 +54,7 @@ class ThrustData:
         self.lookup_table = pd.DataFrame(data[1:], columns=data[0])
 
         if drop_duplicates:
-            self.lookup_table = self.lookup_table.drop_duplicates(subset=['ESC signal (µs)'])
+            self.lookup_table = self.lookup_table.drop_duplicates(subset=["ESC signal (µs)"])
 
 
 class TrajectoryData: 
@@ -71,12 +71,17 @@ class TrajectoryData:
         if extra_cols is None:
             extra_cols = []
         
-        self.state_df = sheet_data[['t', 'r_x', 'r_y', 'r_z', 'v_x', 'v_y', 'v_z'] + extra_cols]
+        self.state_df = sheet_data[["t",
+                                    "r_x", "r_y", "r_z",
+                                    "v_x", "v_y", "v_z",
+                                    "a_x", "a_y", "a_z",
+                                    "omega_x", "omega_y", "omega_z",
+                                    "n_x", "n_y", "n_z", "theta"] + extra_cols]
 
         self.data: dict[list, tuple[list, list]] = {}
         for i, row in self.state_df.iterrows():
             row = [float(i) for i in row]
-            row[3] = row[3] + 5
+            row[3] = row[3]
             self.data |= {row[0]: (row[1:4], row[4:7])}
 
         

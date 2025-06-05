@@ -26,7 +26,9 @@ def angle_between(v1: np.ndarray | list, v2: np.ndarray | list):
         num = np.dot(v1.T, v2)
         den = norm(v1) * norm(v2)
 
-        result = np.arccos(num / den)
+        result = np.arccos(num[0] / den)
+
+        # breakpoint()
 
         return result
 
@@ -175,3 +177,12 @@ def quat_apply(quat, vector):
 
     # Discards
     return rslt[1:4]
+
+
+def cross_matrix(vec):
+
+    return np.array([
+        [0, -vec[2], vec[1]],
+        [vec[2], 0, -vec[0]],
+        [-vec[1], vec[0], 0]
+    ])

@@ -140,6 +140,7 @@ def plot_state_vector(
     fig.grid("True")
     fig.set_ylabel(f"X ({length_unit})")
     fig.set_xlabel(f"time ({time_unit})")
+    fig.legend(("Desired", "Actual"))
 
     fig: Axes3D = axs[0, 1]
     if desired_data:
@@ -149,6 +150,7 @@ def plot_state_vector(
     fig.grid("True")
     fig.set_ylabel(f"Y ({length_unit})")
     fig.set_xlabel(f"time ({time_unit})")
+    fig.legend(("Desired", "Actual"))
 
     fig: Axes3D = axs[0, 2]
     if desired_data:
@@ -158,6 +160,7 @@ def plot_state_vector(
     fig.grid("True")
     fig.set_ylabel(f"Z ({length_unit})")
     fig.set_xlabel(f"time ({time_unit})")
+    fig.legend(("Desired", "Actual"))
 
     fig: Axes3D = axs[1, 0]
     if desired_data:
@@ -167,6 +170,7 @@ def plot_state_vector(
     fig.grid("True")
     fig.set_ylabel(f"Vx ({length_unit}/{time_unit})")
     fig.set_xlabel(f"time ({time_unit})")
+    fig.legend(("Desired", "Actual"))
 
     fig: Axes3D = axs[1, 1]
     if desired_data:
@@ -176,6 +180,7 @@ def plot_state_vector(
     fig.grid("True")
     fig.set_ylabel(f"Vy ({length_unit}/{time_unit})")
     fig.set_xlabel(f"time ({time_unit})")
+    fig.legend(("Desired", "Actual"))
 
     fig: Axes3D = axs[1, 2]
     if desired_data:
@@ -185,6 +190,7 @@ def plot_state_vector(
     fig.grid("True")
     fig.set_ylabel(f"Vz ({length_unit}/{time_unit})")
     fig.set_xlabel(f"time ({time_unit})")
+    fig.legend(("Desired", "Actual"))
 
     # Angular velocity
     figure, axs = plt.subplots(nrows=1, ncols=3, figsize=(figsize[0], figsize[1] / 2))
@@ -221,22 +227,24 @@ def plot_state_vector(
 #            3D             #
 ########################################
 
-def plot_3d(logger: Logger, max_step = None, title = 'Trajectory', figsize = (20,10), length_unit = 'm', show_fig = True):
+def plot_3d(logger: Logger, desired_data: dict[float, tuple[float, float]] = None, max_step = None, title = 'Trajectory', figsize = (20,10), length_unit = 'm', show_fig = True):
     
     fig = plt.figure(figsize = figsize)
     fig.suptitle(title, fontsize = 20)
     ax: Axes3D = fig.add_subplot(111, projection='3d')
-    plot_3d_helper(ax, logger, max_step, length_unit)
+    plot_3d_helper(ax, logger, desired_data, max_step, length_unit)
     fig.show()
 
 
-def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm'):
+def plot_3d_helper(ax: Axes3D, logger: Logger, desired_data: dict[float, tuple[float, float]] = None, max_step = None, length_unit = 'm'):
 
     if max_step is None:
         max_step = logger.step
 
     p = logger.actual_states[:max_step, 0:3]
     v = logger.actual_states[:max_step, 3:6]
+    p_des = [t[0] for t in desired_data.values()]
+    t_des = [t for t in desired_data.keys()]
     # q = logger.actual_states[:max_step, 6:10]
     # w = logger.actual_states[:max_step, 10:13]
 
@@ -245,9 +253,11 @@ def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm
         v = v
     elif length_unit in ["centimeter", "cm"]:
         x_arr = p * M2CM
+        p_des *= M2CM
         v = v * M2CM
     elif length_unit in ["foot", "ft"]:
         x_arr = p * M2FT
+        p_des *= M2FT
         v = v * M2FT
     else:
         raise RuntimeError("Unrecognized length unit")
@@ -269,10 +279,17 @@ def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm
     # ax.set_zlim(0,5)
 
     ax.plot(x[:max_step],y[:max_step],z[:max_step])
+    ax.plot([p[0] for p in p_des],
+            [p[1] for p in p_des],
+            [p[2] for p in p_des])
     
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
+
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_zlim(0, 3)
 
 
 ########################################
@@ -281,6 +298,7 @@ def plot_3d_helper(ax: Axes3D, logger: Logger, max_step = None, length_unit = 'm
 
 def debug_3d(logger: Logger,
              title = 'Trajectory Debug',
+             desired_data: dict[float, tuple[float, float]] = None,
              figsize = (20,10),
              length_unit = 'm',
              start_time_s = 0, interval = 1):
@@ -304,13 +322,14 @@ def debug_3d(logger: Logger,
 
         # torque = logger.actual_torques[step]
         q_d = logger.drone_desired_quat[step]
+        torque = logger.drone_commanded_torques[step]
         p_d_err = logger.drone_p_d_error[step]
 
         thrust = logger.drone_commanded_force[step]
 
 
 
-        plot_3d_helper(ax, logger, step, length_unit)
+        plot_3d_helper(ax, logger, desired_data, step, length_unit)
         ax.text2D(0.05, 0.95, f"Thrust: {norm(thrust)}", transform=ax.transAxes)
 
         
@@ -323,24 +342,30 @@ def debug_3d(logger: Logger,
         plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0.5,0,0])), 'purple')
         plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0.5,0])), 'orange')
         plot_vec_3d(ax, curr_p, curr_p + unit(quat_apply(q_d, [0,0,0.5])), 'black')
+        plot_vec_3d(ax, curr_p, curr_p + unit(torque), 'red')
+
 
         plot_vec_3d(ax, curr_p, curr_p + p_d_err, 'brown')
         plot_vec_3d(ax, curr_p, curr_p + thrust, 'gray')
         # fig.show()
 
-        ax.set_xlim(min(logger.actual_states[:max_step, 0] - 0.5), max(logger.actual_states[:max_step, 0]) + 0.5)
-        ax.set_ylim(min(logger.actual_states[:max_step, 1] - 0.5), max(logger.actual_states[:max_step, 1]) + 0.5)
-        ax.set_zlim(min(logger.actual_states[:max_step, 2] - 0.5), max(logger.actual_states[:max_step, 2]) + 0.5)
+        # ax.set_xlim(min(logger.actual_states[:max_step, 0] - 0.5), max(logger.actual_states[:max_step, 0]) + 0.5)
+        # ax.set_ylim(min(logger.actual_states[:max_step, 1] - 0.5), max(logger.actual_states[:max_step, 1]) + 0.5)
+        # ax.set_zlim(min(logger.actual_states[:max_step, 2] - 0.5), max(logger.actual_states[:max_step, 2]) + 0.5)
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_ylim(-1.5, 1.5)
+        ax.set_zlim(0, 3)
+
         ax.set_title(f"{title}: {logger.t[step]}s")
 
-        ax.legend(["Trajectory", "x_axis", "y_axis", "z_axis", "x_d", "y_d", "z_d", "p_err"])
+        ax.legend(["Trajectory", "Desired Trajectory", "x_axis", "y_axis", "z_axis", "x_d", "y_d", "z_d", "p_err"])
         # ax.set_aspect('equal', adjustable='box')
         # ax.axis('square')
         plt.pause(logger.sim.dt)
 
         if step + interval + 1 > max_step:
             if input("Press w to watch again:") == "w":
-                debug_3d(logger, title, figsize, length_unit, start_time_s, interval)
+                debug_3d(logger, title, desired_data, figsize, length_unit, start_time_s, interval)
 
 
         ax.cla()
