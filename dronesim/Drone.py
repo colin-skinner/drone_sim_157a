@@ -124,7 +124,7 @@ class Drone:
         self.A = allocation_matrix
         self.A_inv = np.linalg.inv(allocation_matrix)
 
-    def define_drone(self, mass: float, I: np.ndarray[float], dimensions: list[float]):  # noqa: E741
+    def define_drone(self, mass: float, I: np.ndarray, dimensions: list[float]):  # noqa: E741
 
         if mass <= 0:
             raise ValueError("Mass must be greater than 0 kg")
@@ -402,26 +402,48 @@ class Drone:
         elif type(self.path) is pd.DataFrame:
 
             timestamps = self.path["t"]
-            p_arr = self.path[["r_x", "r_y", "r_z"]]
-            v_arr = self.path[["v_x", "v_y", "v_z"]]
-            a_arr = self.path[["a_x", "a_y", "a_z"]]
-            n_arr = self.path[["n_x", "n_y", "n_z"]]
-            w_arr = self.path[["omega_x", "omega_y", "omega_z"]]
-            theta_arr = self.path["theta"]
+            # p_arr = self.path[["r_x", "r_y", "r_z"]]
+            # v_arr = self.path[["v_x", "v_y", "v_z"]]
+            # a_arr = self.path[["a_x", "a_y", "a_z"]]
+            # n_arr = self.path[["n_x", "n_y", "n_z"]]
+            # w_arr = self.path[["omega_x", "omega_y", "omega_z"]]
+            # theta_arr = self.path["theta"]
             
             # breakpoint()
             # row = max(timestamps.index[i] for i in range(len(timestamps)) if timestamps[i] < self.t)
             row = sum([1 for i in timestamps if i < self.t]) - 1
+
+            p_d = np.array([np.interp(self.t, timestamps, self.path["r_x"]),
+                        np.interp(self.t, timestamps, self.path["r_y"]),
+                        np.interp(self.t, timestamps, self.path["r_z"])])
+
+            v_d = np.array([np.interp(self.t, timestamps, self.path["v_x"]),
+                        np.interp(self.t, timestamps, self.path["v_y"]),
+                        np.interp(self.t, timestamps, self.path["v_z"])])
+
+            a_d = np.array([np.interp(self.t, timestamps, self.path["a_x"]),
+                        np.interp(self.t, timestamps, self.path["a_y"]),
+                        np.interp(self.t, timestamps, self.path["a_z"])])
+
+            n_d = np.array([np.interp(self.t, timestamps, self.path["n_x"]),
+                        np.interp(self.t, timestamps, self.path["n_y"]),
+                        np.interp(self.t, timestamps, self.path["n_z"])])
+
+            w_d = np.array([np.interp(self.t, timestamps, self.path["omega_x"]),
+                        np.interp(self.t, timestamps, self.path["omega_y"]),
+                        np.interp(self.t, timestamps, self.path["omega_z"])])
+
+            theta_d = np.interp(self.t, timestamps, self.path["theta"])
             
             # print(row)
             # breakpoint()
 
-            p_d = p_arr.iloc[row]
-            v_d = v_arr.iloc[row]
-            a_d = a_arr.iloc[row]
-            n_d = n_arr.iloc[row]
-            w_d = w_arr.iloc[row]
-            theta_d = theta_arr.iloc[row]
+            # p_d = p_arr.iloc[row]
+            # v_d = v_arr.iloc[row]
+            # a_d = a_arr.iloc[row]
+            # n_d = n_arr.iloc[row]
+            # w_d = w_arr.iloc[row]
+            # theta_d = theta_arr.iloc[row]
             # breakpoint()
 
             return np.array(p_d), np.array(v_d), np.array(a_d), np.array(w_d), np.array(n_d), float(theta_d)

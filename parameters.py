@@ -222,14 +222,14 @@ speed_interval = 25  # Frames to travel at once for 0.001 FAST
 
 # Attitude
 
-attitude_controller_1_kd = 2 * [10] + [10] 
-attitude_controller_1_kp = 2 * [200] + [200]
-attitude_controller_1_Lambda = 3 * [5]
+attitude_controller_1_kd = 2 * [2] + [2]
+attitude_controller_1_kp = 2 * [8] + [8]
+attitude_controller_1_Lambda = [0,0,0]
 
 # Position
 
-position_controller_1_kp = 2 * [9.5] + [17]
-position_controller_1_kd = 2 * [2.4] + [2.7]
+position_controller_1_kp = [20,20,30]
+position_controller_1_kd = [15,15,17]
 
 
 

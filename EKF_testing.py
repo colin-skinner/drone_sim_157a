@@ -12,7 +12,7 @@ np.set_printoptions(edgeitems=30, linewidth=100000,
 # warnings.simplefilter('error')
 
     
-filename = "results/long_data_kalman.csv"
+filename = "results/final_cdr_kalman.csv"
 
 data = pd.read_csv(f'{os.getcwd()}/{filename}')
 
@@ -128,5 +128,6 @@ plt.figure()
 plt.hist(resids, bins=50, label=["x", "y", "z"])
 plt.title("Histogram of residuals")
 plt.xlabel("Residual (m)")
+plt.legend()
 plt.show()
     

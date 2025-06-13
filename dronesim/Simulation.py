@@ -139,7 +139,7 @@ class Simulation:
     #        Forces and Torques            #
     ########################################
 
-    def add_force(self, force: np.ndarray, r: np.ndarray | None = None):
+    def add_force(self, force: np.ndarray, r: np.ndarray):
         """Adds force in the global frame of the drone"""
 
         if np.shape(force) != (3,):
